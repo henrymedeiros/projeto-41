@@ -22,6 +22,13 @@ um novo `[Unreleased]` vazio no topo.
 - `npm run autostart`: inicia o Projeto 41 junto com o sistema no Windows
   (nativo ou WSL), Linux (systemd do usuário) e macOS (LaunchAgent).
 
+### Changed
+
+- O snapshot diário do histórico agora é gravado ao ligar o servidor e de hora
+  em hora, além das 23:59 (a última gravação do dia vira o fechamento). Assim um
+  dia em que o computador ficou ligado em algum momento não se perde. Carteira
+  vazia não gera registro, para não zerar a base da rentabilidade do ano.
+
 ### Removed
 
 - `npm run windows:shortcut` (só funcionava com o projeto dentro do WSL),

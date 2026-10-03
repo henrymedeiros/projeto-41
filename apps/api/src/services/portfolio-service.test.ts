@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createDatabase, type AppDatabase } from "@projeto41/db";
-import { buildDashboard } from "./portfolio-service.js";
+import { buildDashboard, createDailySnapshot, snapshotDate } from "./portfolio-service.js";
 
 let db: AppDatabase | undefined;
 afterEach(() => db?.close());
@@ -76,5 +76,32 @@ describe("buildDashboard", () => {
     const dashboard = buildDashboard(db, new Date("2026-06-14T12:00:00-03:00"));
 
     expect(dashboard.annualReturn).toBeCloseTo(-0.1);
+  });
+});
+
+describe("createDailySnapshot", () => {
+  it("records the day and overwrites it on later runs", () => {
+    db = createDatabase(":memory:");
+    db.positions.upsert({ category: "cash", name: "Conta", invested: 100, currentValue: 100, currency: "BRL" });
+    expect(createDailySnapshot(db, "2026-10-02")).toBe(100);
+
+    db.positions.upsert({ category: "cash", name: "Corretora", invested: 50, currentValue: 50, currency: "BRL" });
+    createDailySnapshot(db, "2026-10-02");
+
+    expect(db.snapshots.list()).toMatchObject([{ date: "2026-10-02", totalBrl: 150, payload: { cash: 150 } }]);
+  });
+
+  it("skips an empty portfolio so a zero total never becomes the year's baseline", () => {
+    db = createDatabase(":memory:");
+    expect(createDailySnapshot(db, "2026-10-02")).toBeNull();
+    expect(db.snapshots.list()).toEqual([]);
+  });
+});
+
+describe("snapshotDate", () => {
+  it("uses the calendar day of the configured timezone", () => {
+    const lateNightInFortaleza = new Date("2026-10-03T01:30:00Z");
+    expect(snapshotDate("America/Fortaleza", lateNightInFortaleza)).toBe("2026-10-02");
+    expect(snapshotDate("UTC", lateNightInFortaleza)).toBe("2026-10-03");
   });
 });

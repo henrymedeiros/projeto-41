@@ -95,8 +95,21 @@ export function buildDashboard(db: AppDatabase, now = new Date()) {
   };
 }
 
+/** Dia (AAAA-MM-DD) de `now` no fuso usado pelos snapshots. */
+export function snapshotDate(timezone: string, now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(now);
+}
+
+// Grava (ou sobrescreve) o registro do dia: a última gravação do dia vira o fechamento.
+// Carteira vazia não grava, senão um total zerado viraria a base da rentabilidade do ano.
 export function createDailySnapshot(db: AppDatabase, date: string) {
   const dashboard = buildDashboard(db);
+  if (dashboard.totalBrl <= 0) return null;
   const priceTimes = Object.fromEntries(
     dashboard.prices.map((price) => [price.symbol, price.fetchedAt])
   );
