@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "import": "npm run import -w @projeto41/api --",
     "icons": "npm run icons -w @projeto41/api",
-    "windows:shortcut": "node scripts/install-windows-shortcut.mjs",
+    "serve": "node scripts/supervisor.mjs",
+    "autostart": "node scripts/autostart.mjs",
     "start": "npm run start -w @projeto41/api"
   },
   "devDependencies": {

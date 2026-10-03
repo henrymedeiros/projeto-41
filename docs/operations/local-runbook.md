@@ -3,11 +3,44 @@
 ## Iniciar
 
 ```bash
+npm run serve -- --stop  # so se o autostart estiver ligado: libera a porta 3001
 npm run dev
 ```
 
 Acesse `http://127.0.0.1:5173`. A API aceita conexoes somente em
 `127.0.0.1:3001`.
+
+Para mudancas so no frontend, basta a previa em `http://127.0.0.1:4141` (veja
+abaixo), sem parar o supervisor.
+
+**Importante:** o supervisor (autostart) e o `npm run dev` usam a mesma porta
+da API. Encerre o supervisor antes de desenvolver e religue com `npm run serve`
+ao terminar (ou espere o proximo login).
+
+## Rodar sempre
+
+```bash
+npm run serve            # supervisor em primeiro plano
+npm run autostart        # sobe junto com o sistema (Windows, WSL, Linux, macOS)
+npm run serve -- --stop  # encerra o supervisor em segundo plano
+```
+
+Producao em `http://127.0.0.1:3001`. O supervisor recompila e reinicia sozinho
+quando o commit atual muda e reinicia o servidor se ele cair.
+
+Previa ao vivo em `http://127.0.0.1:4141`: o supervisor mantem o Vite rodando
+sobre os arquivos da pasta, com hot reload e a API da porta 3001. Serve para
+conferir mudancas do frontend ainda sem commit; mudancas na API so aparecem
+depois do commit. `PROJETO41_PREVIEW_PORT` no `.env` troca a porta (`0`
+desliga). Log em
+`data/projeto41.log`; estado em `data/build-stamp.json` e
+`data/supervisor.lock.json`.
+
+**Mudou a pasta do projeto? Rode `npm run autostart` de novo, ja na pasta
+nova.** O autostart guarda o caminho completo do projeto (e, no WSL, a
+distribuicao). Depois de mover, renomear a pasta ou trocar de distribuicao, a
+inicializacao automatica e o atalho apontam para o lugar antigo e param de
+funcionar sem aviso. Rodar de novo substitui a instalacao anterior.
 
 ## Precos
 

@@ -44,6 +44,10 @@ No PowerShell, use `Copy-Item .env.example .env` no lugar de `cp`.
 
 Abra **http://127.0.0.1:5173**. A API sobe em `http://127.0.0.1:3001`.
 
+> Se o autostart estiver ligado, rode `npm run serve -- --stop` antes de
+> `npm run dev` (os dois usam a porta 3001). Veja
+> [Dia a dia com o autostart ligado](#dia-a-dia-com-o-autostart-ligado).
+
 Na primeira execução o banco (`data/projeto41.sqlite`) é criado sem dados
 financeiros e com metas de alocação genéricas, que podem ser ajustadas pela
 interface. Não é preciso ter ou importar uma planilha.
@@ -64,25 +68,72 @@ compilado, então não é necessário manter o Vite em execução.
 Este projeto não possui autenticação e foi feito para uso local. Não exponha a
 porta diretamente na internet.
 
-## Atalho na Área de Trabalho do Windows (WSL)
-
-Com o projeto instalado dentro do WSL, execute uma vez:
+## Rodar sempre (supervisor)
 
 ```bash
-npm run windows:shortcut
+npm run serve            # sobe e mantém no ar (Ctrl+C encerra)
+npm run serve -- --open  # idem, abrindo o navegador quando estiver pronto
+npm run serve -- --stop  # encerra o que estiver rodando em segundo plano
 ```
 
-O comando cria um atalho chamado **Projeto 41** na Área de Trabalho do Windows.
-Ao abrir o atalho:
+O supervisor (`scripts/supervisor.mjs`) cuida do modo de produção sozinho:
 
-- o servidor é reutilizado se já estiver em execução;
-- dependências e frontend são preparados automaticamente se ainda não existirem;
-- o servidor inicia oculto em segundo plano;
-- o navegador abre em `http://127.0.0.1:3001`.
+- instala dependências (`npm ci`) e compila (`npm run build`) quando faltam;
+- reinicia o servidor se ele cair (espera 2s, 4s, 8s… até 60s entre tentativas);
+- a cada minuto confere o código: depois de um `git pull`, checkout ou commit,
+  recompila e reinicia. Se o `package-lock.json` mudou, roda `npm ci` antes. Se o
+  build falhar, o servidor segue com a versão anterior até o código mudar de novo;
+- roda uma instância só: chamar de novo apenas abre o navegador (com `--open`).
 
-Em caso de erro, consulte `data/projeto41-launcher.log`. Se o projeto for movido
-para outra pasta ou distribuição WSL, execute o comando novamente para recriar
-o atalho.
+Mudanças locais ainda sem commit não disparam o rebuild. Para vê-las, o
+supervisor mantém também uma **prévia ao vivo em http://127.0.0.1:4141**: o Vite
+lendo os arquivos da pasta, com hot reload, usando a API (e os dados) da porta
+3001. Mudanças no frontend aparecem na hora; mudanças na API só depois do commit.
+Para trocar a porta, defina `PROJETO41_PREVIEW_PORT` no `.env` (`0` desliga a
+prévia). Log em `data/projeto41.log`.
+
+## Iniciar junto com o sistema
+
+Execute uma vez:
+
+```bash
+npm run autostart              # instala e já inicia
+npm run autostart -- --remove  # desinstala e encerra
+```
+
+| Sistema | O que é instalado |
+| --- | --- |
+| Windows (nativo) | Atalho na pasta Inicializar (sobe oculto ao entrar no Windows) e atalho **Projeto 41** na Área de Trabalho, que abre o navegador |
+| WSL | O mesmo no Windows, rodando o projeto dentro da distribuição atual |
+| Linux | Serviço systemd do usuário `projeto41` |
+| macOS | LaunchAgent `com.projeto41.supervisor` |
+
+### Dia a dia com o autostart ligado
+
+**Mexendo só no frontend? Use a prévia em http://127.0.0.1:4141**, não precisa
+parar nada.
+
+**Para mexer na API, encerre o supervisor antes de `npm run dev`.** O supervisor e o `npm run dev`
+usam a mesma porta da API (`3001`); com os dois ligados, a API do modo dev não
+sobe ou o Vite acaba falando com a versão de produção.
+
+```bash
+npm run serve -- --stop   # 1. encerra o supervisor
+npm run dev               # 2. desenvolve normalmente
+npm run serve             # 3. ao terminar, religa (ou espere o próximo login)
+```
+
+**Mudou o projeto de pasta? Rode `npm run autostart` de novo.** O autostart
+guarda o caminho completo do projeto (e, no WSL, o nome da distribuição). Depois
+de mover, renomear a pasta ou trocar de distribuição WSL, a inicialização
+automática e o atalho da Área de Trabalho apontam para o lugar antigo e deixam
+de funcionar sem aviso. Rodar o comando de novo, já na pasta nova, substitui a
+instalação anterior:
+
+```bash
+cd caminho/novo/projeto-41
+npm run autostart
+```
 
 ## Como usar
 
@@ -148,6 +199,7 @@ sem consultar provedores externos.
 ## Desenvolvimento
 
 ```bash
+npm run serve -- --stop  # se o autostart estiver ligado: libera a porta 3001
 npm run dev        # API + frontend com hot reload
 npm test           # testes (Vitest)
 npm run typecheck  # checagem de tipos

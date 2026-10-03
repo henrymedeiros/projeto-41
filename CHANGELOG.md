@@ -11,6 +11,22 @@ um novo `[Unreleased]` vazio no topo.
 
 ## [Unreleased]
 
+### Added
+
+- `npm run serve`: supervisor que mantém o modo de produção no ar, instala e
+  compila quando falta, reinicia o servidor se ele cair e recompila sozinho
+  quando o código muda (`git pull`, checkout ou commit).
+- Prévia ao vivo em `http://127.0.0.1:4141`, mantida pelo supervisor: Vite com
+  hot reload sobre os arquivos da pasta, para conferir mudanças do frontend
+  ainda sem commit. Porta configurável com `PROJETO41_PREVIEW_PORT` (`0` desliga).
+- `npm run autostart`: inicia o Projeto 41 junto com o sistema no Windows
+  (nativo ou WSL), Linux (systemd do usuário) e macOS (LaunchAgent).
+
+### Removed
+
+- `npm run windows:shortcut` (só funcionava com o projeto dentro do WSL),
+  substituído por `npm run autostart`. O log agora fica em `data/projeto41.log`.
+
 ## [0.5.0] - 2026-06-17
 
 ### Added
