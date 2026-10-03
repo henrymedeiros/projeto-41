@@ -10,8 +10,8 @@ npm run dev
 Acesse `http://127.0.0.1:5173`. A API aceita conexoes somente em
 `127.0.0.1:3001`.
 
-Para mudancas so no frontend, basta a previa em `http://127.0.0.1:4141` (veja
-abaixo), sem parar o supervisor.
+Para conferir mudancas ainda sem commit, basta a previa em
+`http://127.0.0.1:4141` (veja abaixo), sem parar o supervisor.
 
 **Importante:** o supervisor (autostart) e o `npm run dev` usam a mesma porta
 da API. Encerre o supervisor antes de desenvolver e religue com `npm run serve`
@@ -29,10 +29,12 @@ Producao em `http://127.0.0.1:3001`. O supervisor recompila e reinicia sozinho
 quando o commit atual muda e reinicia o servidor se ele cair.
 
 Previa ao vivo em `http://127.0.0.1:4141`: o supervisor mantem o Vite rodando
-sobre os arquivos da pasta, com hot reload e a API da porta 3001. Serve para
-conferir mudancas do frontend ainda sem commit; mudancas na API so aparecem
-depois do commit. `PROJETO41_PREVIEW_PORT` no `.env` troca a porta (`0`
-desliga). Log em
+sobre os arquivos da pasta, com hot reload, e uma API de testes em
+`http://127.0.0.1:4142` (`tsx watch`, reinicia a cada mudanca). A API de testes
+usa `data/preview.sqlite`, copiado da producao sempre que o supervisor liga
+(`npm run serve -- --reset-preview` recopia), e roda sem cotacoes automaticas
+nem snapshots. `PROJETO41_PREVIEW_PORT` no `.env` troca a porta da previa; a
+API de testes usa a seguinte (`0` desliga as duas). Log em
 `data/projeto41.log`; estado em `data/build-stamp.json` e
 `data/supervisor.lock.json`.
 

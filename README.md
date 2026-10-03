@@ -74,6 +74,7 @@ porta diretamente na internet.
 npm run serve            # sobe e mantém no ar (Ctrl+C encerra)
 npm run serve -- --open  # idem, abrindo o navegador quando estiver pronto
 npm run serve -- --stop  # encerra o que estiver rodando em segundo plano
+npm run serve -- --reset-preview  # recopia os dados de produção para a prévia
 ```
 
 O supervisor (`scripts/supervisor.mjs`) cuida do modo de produção sozinho:
@@ -86,11 +87,21 @@ O supervisor (`scripts/supervisor.mjs`) cuida do modo de produção sozinho:
 - roda uma instância só: chamar de novo apenas abre o navegador (com `--open`).
 
 Mudanças locais ainda sem commit não disparam o rebuild. Para vê-las, o
-supervisor mantém também uma **prévia ao vivo em http://127.0.0.1:4141**: o Vite
-lendo os arquivos da pasta, com hot reload, usando a API (e os dados) da porta
-3001. Mudanças no frontend aparecem na hora; mudanças na API só depois do commit.
-Para trocar a porta, defina `PROJETO41_PREVIEW_PORT` no `.env` (`0` desliga a
-prévia). Log em `data/projeto41.log`.
+supervisor mantém também uma **prévia ao vivo em http://127.0.0.1:4141**, que
+roda o código da pasta, frontend e API:
+
+| | Produção | Prévia (testes) |
+| --- | --- | --- |
+| Frontend | `3001` (build) | `4141` (Vite, hot reload) |
+| API | `3001`, código do commit | `4142`, código da pasta, reinicia a cada mudança |
+| Banco | `data/projeto41.sqlite` | `data/preview.sqlite`, cópia da produção |
+| Cotações automáticas e snapshots | sim | não (o botão "Atualizar preços" funciona) |
+
+O banco da prévia é recopiado da produção sempre que o supervisor liga (e com
+`npm run serve -- --reset-preview`), então dá para testar à vontade sem risco
+para os dados reais. Para trocar a porta, defina `PROJETO41_PREVIEW_PORT` no
+`.env`; a API de testes usa a porta seguinte (`0` desliga a prévia). Log em
+`data/projeto41.log`.
 
 ## Iniciar junto com o sistema
 
@@ -110,10 +121,10 @@ npm run autostart -- --remove  # desinstala e encerra
 
 ### Dia a dia com o autostart ligado
 
-**Mexendo só no frontend? Use a prévia em http://127.0.0.1:4141**, não precisa
-parar nada.
+**Para conferir mudanças, use a prévia em http://127.0.0.1:4141**: frontend e
+API da pasta, sem parar nada.
 
-**Para mexer na API, encerre o supervisor antes de `npm run dev`.** O supervisor e o `npm run dev`
+**Só para usar o `npm run dev`, encerre o supervisor antes.** O supervisor e o `npm run dev`
 usam a mesma porta da API (`3001`); com os dois ligados, a API do modo dev não
 sobe ou o Vite acaba falando com a versão de produção.
 

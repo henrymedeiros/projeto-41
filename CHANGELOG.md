@@ -16,9 +16,13 @@ um novo `[Unreleased]` vazio no topo.
 - `npm run serve`: supervisor que mantém o modo de produção no ar, instala e
   compila quando falta, reinicia o servidor se ele cair e recompila sozinho
   quando o código muda (`git pull`, checkout ou commit).
-- Prévia ao vivo em `http://127.0.0.1:4141`, mantida pelo supervisor: Vite com
-  hot reload sobre os arquivos da pasta, para conferir mudanças do frontend
-  ainda sem commit. Porta configurável com `PROJETO41_PREVIEW_PORT` (`0` desliga).
+- Prévia ao vivo em `http://127.0.0.1:4141`, mantida pelo supervisor, para
+  conferir mudanças ainda sem commit: Vite com hot reload e uma API de testes
+  em `4142` (`tsx watch`) sobre os arquivos da pasta. A API de testes usa
+  `data/preview.sqlite`, copiado da produção ao ligar o supervisor
+  (`npm run serve -- --reset-preview` recopia), e não roda cotações automáticas
+  nem snapshots (`PROJETO41_SCHEDULER=off`). Porta configurável com
+  `PROJETO41_PREVIEW_PORT` (`0` desliga).
 - `npm run autostart`: inicia o Projeto 41 junto com o sistema no Windows
   (nativo ou WSL), Linux (systemd do usuário) e macOS (LaunchAgent).
 

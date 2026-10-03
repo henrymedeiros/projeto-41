@@ -32,7 +32,7 @@ const app = buildApp({
   iconService,
   webRoot: existsSync(resolve(webRoot, "index.html")) ? webRoot : undefined
 });
-const stopScheduler = config.demoMode
+const stopScheduler = config.demoMode || !config.scheduler
   ? () => undefined
   : startScheduler(db, livePriceService, config.timezone);
 

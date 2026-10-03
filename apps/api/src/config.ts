@@ -22,6 +22,8 @@ export function loadServerConfig(
     databaseUrl: environment.DATABASE_URL ?? "./data/projeto41.sqlite",
     port: Number(environment.PORT ?? 3001),
     demoMode: environment.DEMO_MODE === "true",
+    // a API de testes do supervisor roda sem cotações automáticas nem snapshots
+    scheduler: environment.PROJETO41_SCHEDULER !== "off",
     coingeckoApiKey: environment.COINGECKO_API_KEY ?? "",
     brapiToken: environment.BRAPI_TOKEN ?? "",
     timezone: environment.TZ ?? "America/Fortaleza"

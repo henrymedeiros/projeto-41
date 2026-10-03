@@ -42,4 +42,11 @@ describe("loadServerConfig", () => {
       loadServerConfig(temporaryDirectory, { BRAPI_TOKEN: "process-token" }).brapiToken
     ).toBe("process-token");
   });
+
+  it("runs scheduled jobs unless PROJETO41_SCHEDULER is off", () => {
+    temporaryDirectory = mkdtempSync(join(tmpdir(), "projeto41-config-"));
+
+    expect(loadServerConfig(temporaryDirectory, {}).scheduler).toBe(true);
+    expect(loadServerConfig(temporaryDirectory, { PROJETO41_SCHEDULER: "off" }).scheduler).toBe(false);
+  });
 });

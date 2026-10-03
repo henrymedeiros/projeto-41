@@ -1,12 +1,15 @@
 // Mantém o Projeto 41 rodando em modo de produção (http://127.0.0.1:PORT):
 // instala dependências e compila quando preciso, reinicia o servidor se ele cair
 // e, quando o código muda (git pull, checkout, commit), recompila e reinicia sozinho.
-// Junto, mantém uma prévia ao vivo (Vite, http://127.0.0.1:4141) que mostra as
-// mudanças do frontend ainda sem commit, falando com a mesma API.
+// Junto, mantém uma prévia ao vivo do código da pasta, ainda sem commit:
+//   http://127.0.0.1:4141   frontend (Vite, hot reload)
+//   http://127.0.0.1:4142   API de testes (tsx watch), sem tarefas agendadas,
+//                           num banco próprio copiado da produção ao ligar
 //
-//   node scripts/supervisor.mjs          roda em primeiro plano
-//   node scripts/supervisor.mjs --open   idem, e abre o navegador quando estiver no ar
-//   node scripts/supervisor.mjs --stop   encerra o supervisor que estiver rodando
+//   node scripts/supervisor.mjs                  roda em primeiro plano
+//   node scripts/supervisor.mjs --open           idem, e abre o navegador quando estiver no ar
+//   node scripts/supervisor.mjs --stop           encerra o supervisor que estiver rodando
+//   node scripts/supervisor.mjs --reset-preview  recopia o banco de produção para o de testes
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
@@ -43,6 +46,13 @@ export function readPreviewPort(envFileText = "", environment = process.env) {
   if (value === undefined || value === "") return DEFAULT_PREVIEW_PORT;
   const port = Number(value);
   return port > 0 ? port : null;
+}
+
+/** Banco de produção: variável de ambiente > DATABASE_URL do .env > ./data/projeto41.sqlite. */
+export function readDatabaseUrl(envFileText = "", environment = process.env) {
+  if (environment.DATABASE_URL) return environment.DATABASE_URL;
+  const match = /^\s*DATABASE_URL\s*=\s*["']?([^"'\r\n#]+)/m.exec(envFileText);
+  return match?.[1]?.trim() || "./data/projeto41.sqlite";
 }
 
 /** Coloca o Node em uso na frente do PATH (o npm chamado pelo supervisor usa o mesmo Node). */
@@ -137,14 +147,14 @@ function currentState() {
   return { head, lock };
 }
 
-/** Roda um comando até o fim, com a saída no log. */
-function run(command, args) {
+/** Roda um comando até o fim, com a saída no log (shell no Windows para achar o npm.cmd). */
+function run(command, args, { shell = isWindows } = {}) {
   return new Promise((resolveRun, rejectRun) => {
     log(`$ ${command} ${args.join(" ")}`);
     const child = spawn(command, args, {
       cwd: root,
       env: runtimeEnvironment,
-      shell: isWindows,
+      shell,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"]
     });
@@ -162,6 +172,22 @@ const port = readPort(envText);
 const appUrl = `http://127.0.0.1:${port}`;
 const previewPort = readPreviewPort(envText);
 const previewUrl = previewPort ? `http://127.0.0.1:${previewPort}` : null;
+const previewApiUrl = previewPort ? `http://127.0.0.1:${previewPort + 1}` : null;
+const databasePath = resolve(root, readDatabaseUrl(envText));
+const previewDatabasePath = resolve(dirname(databasePath), "preview.sqlite");
+
+/** Recopia o banco de produção para o da API de testes (processo à parte, veja copy-database.mjs). */
+async function copyPreviewDatabase() {
+  try {
+    await run(process.execPath, [resolve(root, "scripts/copy-database.mjs"), databasePath, previewDatabasePath], {
+      shell: false
+    });
+    return true;
+  } catch (error) {
+    log(`falha ao copiar o banco para a prévia: ${error.message} (a prévia segue com o banco anterior)`);
+    return false;
+  }
+}
 
 async function isServerReady() {
   try {
@@ -196,9 +222,23 @@ function openBrowser() {
 let stopping = false;
 
 /**
- * Um processo que o supervisor mantém no ar: se cair, volta depois de 2s, 4s, 8s… até 60s.
- * Um único processo (sem npm no meio): encerrar o serviço é encerrar este pid.
+ * Encerra um processo e os filhos dele. No Windows o SIGTERM só derruba o pid dado, e o
+ * tsx watch e o Vite deixariam o filho (que segura a porta) rodando: taskkill /T leva a árvore.
  */
+function killTree(pid) {
+  if (!isAlive(pid)) return;
+  if (isWindows) {
+    spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+    return;
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    // já encerrou
+  }
+}
+
+/** Um processo que o supervisor mantém no ar: se cair, volta depois de 2s, 4s, 8s… até 60s. */
 function createService(name, url, command, args, options) {
   const service = { child: null, backoffMs: 0, healthySince: 0 };
 
@@ -232,7 +272,7 @@ function createService(name, url, command, args, options) {
         clearTimeout(force);
         resolveStop();
       });
-      child.kill("SIGTERM");
+      killTree(child.pid);
     });
   };
 
@@ -244,16 +284,38 @@ const server = createService("servidor", appUrl, process.execPath, ["--import", 
   env: runtimeEnvironment
 });
 
+// API de testes: código da pasta, reinicia a cada mudança, banco próprio e sem cotações
+// automáticas (duas APIs buscando preços dobrariam as chamadas aos provedores)
+const previewApi = previewApiUrl
+  ? createService(
+      "servidor da API de testes",
+      previewApiUrl,
+      process.execPath,
+      [resolve(root, "node_modules/tsx/dist/cli.mjs"), "watch", "--clear-screen=false", "src/server.ts"],
+      {
+        cwd: resolve(root, "apps/api"),
+        env: {
+          ...runtimeEnvironment,
+          PORT: String(previewPort + 1),
+          DATABASE_URL: previewDatabasePath,
+          PROJETO41_SCHEDULER: "off"
+        }
+      }
+    )
+  : null;
+
 // Vite em modo dev lendo os arquivos da pasta: mudanças sem commit aparecem na hora
-const preview = previewPort
+const preview = previewUrl
   ? createService(
       "servidor de prévia",
       previewUrl,
       process.execPath,
       [resolve(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--port", String(previewPort), "--strictPort"],
-      { cwd: resolve(root, "apps/web"), env: { ...runtimeEnvironment, API_TARGET: appUrl } }
+      { cwd: resolve(root, "apps/web"), env: { ...runtimeEnvironment, API_TARGET: previewApiUrl } }
     )
   : null;
+
+const previewServices = [previewApi, preview].filter(Boolean);
 
 function writeLock() {
   writeFileSync(
@@ -262,6 +324,7 @@ function writeLock() {
       pid: process.pid,
       serverPid: server?.child?.pid ?? null,
       previewPid: preview?.child?.pid ?? null,
+      previewApiPid: previewApi?.child?.pid ?? null,
       port,
       previewPort
     })
@@ -288,7 +351,7 @@ async function prepare({ firstRun }) {
     if (plan.install) {
       // no Windows o módulo nativo do SQLite fica travado enquanto o servidor roda,
       // e a prévia roda de dentro do node_modules que o npm ci apaga
-      await Promise.all([server.stop(), preview?.stop()]);
+      await Promise.all([server, ...previewServices].map((service) => service.stop()));
       await run("npm", ["ci"]);
     }
     await run("npm", ["run", "build"]);
@@ -308,7 +371,9 @@ async function checkForUpdates() {
   if (await prepare({ firstRun: false })) {
     await server.stop();
     if (!stopping) server.start();
-    if (!stopping && preview && !preview.child) preview.start();   // parada pelo npm ci
+    for (const service of previewServices) {
+      if (!stopping && !service.child) service.start();   // parada pelo npm ci
+    }
   }
 }
 
@@ -324,15 +389,8 @@ function stopRunning() {
     console.log("O supervisor não está rodando.");
     return;
   }
-  for (const pid of [lock.serverPid, lock.previewPid, lock.pid]) {
-    if (isAlive(pid)) {
-      try {
-        process.kill(pid, "SIGTERM");
-      } catch {
-        // já encerrou
-      }
-    }
-  }
+  // o supervisor primeiro, senão ele reinicia os processos que acabaram de cair
+  for (const pid of [lock.pid, lock.serverPid, lock.previewPid, lock.previewApiPid]) killTree(pid);
   rmSync(paths.lock, { force: true });
   console.log(`Supervisor encerrado (pid ${lock.pid}).`);
 }
@@ -341,7 +399,7 @@ async function shutdown() {
   if (stopping) return;
   stopping = true;
   log("encerrando");
-  await Promise.all([server.stop(), preview?.stop()]);
+  await Promise.all([server, ...previewServices].map((service) => service.stop()));
   rmSync(paths.lock, { force: true });
   process.exit(0);
 }
@@ -351,6 +409,12 @@ async function main() {
   mkdirSync(dataDirectory, { recursive: true });
 
   if (args.has("--stop")) return stopRunning();
+  if (args.has("--reset-preview")) {
+    // com a API de testes rodando também funciona: ela passa a ver o banco novo
+    const copied = await copyPreviewDatabase();
+    console.log(copied ? `Banco de testes recopiado da produção (${previewDatabasePath}).` : "Falha ao copiar; veja data/projeto41.log.");
+    return;
+  }
 
   // uma instância só: se outra já cuida do servidor, no máximo abre o navegador
   const lock = readLock();
@@ -359,14 +423,8 @@ async function main() {
     else console.log(`O Projeto 41 já está rodando (supervisor pid ${lock.pid}).`);
     return;
   }
-  for (const pid of [lock?.serverPid, lock?.previewPid]) {
-    if (!isAlive(pid)) continue;
-    try {
-      process.kill(pid, "SIGTERM");   // processo órfão de um supervisor que foi derrubado
-    } catch {
-      // já encerrou
-    }
-  }
+  // processos órfãos de um supervisor que foi derrubado
+  for (const pid of [lock?.serverPid, lock?.previewPid, lock?.previewApiPid]) killTree(pid);
 
   rotateLog();
   writeLock();
@@ -379,9 +437,12 @@ async function main() {
 
   await prepare({ firstRun: true });
   server.start();
-  preview?.start();
+  if (previewServices.length) {
+    await copyPreviewDatabase();
+    for (const service of previewServices) service.start();
+  }
   console.log(`Projeto 41 em ${appUrl} (log: data/projeto41.log)`);
-  if (previewUrl) console.log(`Prévia ao vivo (mudanças sem commit) em ${previewUrl}`);
+  if (previewUrl) console.log(`Prévia ao vivo (mudanças sem commit) em ${previewUrl}, API de testes em ${previewApiUrl}`);
   if (args.has("--open") && (await waitForServer())) openBrowser();
 
   let checking = false;

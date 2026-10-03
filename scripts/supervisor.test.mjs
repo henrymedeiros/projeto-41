@@ -4,6 +4,7 @@ import {
   isAlive,
   nextBackoff,
   planPreparation,
+  readDatabaseUrl,
   readPort,
   readPreviewPort
 } from "./supervisor.mjs";
@@ -27,6 +28,15 @@ describe("readPreviewPort", () => {
   it("is turned off by 0", () => {
     expect(readPreviewPort("PROJETO41_PREVIEW_PORT=0", {})).toBeNull();
     expect(readPreviewPort("", { PROJETO41_PREVIEW_PORT: "0" })).toBeNull();
+  });
+});
+
+describe("readDatabaseUrl", () => {
+  it("prefers the environment, then .env, then the default database", () => {
+    expect(readDatabaseUrl("DATABASE_URL=./a.sqlite", { DATABASE_URL: "./b.sqlite" })).toBe("./b.sqlite");
+    expect(readDatabaseUrl('PORT=3001\nDATABASE_URL="./data/outro.sqlite"\n', {})).toBe("./data/outro.sqlite");
+    expect(readDatabaseUrl("DATABASE_URL=\n", {})).toBe("./data/projeto41.sqlite");
+    expect(readDatabaseUrl("", {})).toBe("./data/projeto41.sqlite");
   });
 });
 
