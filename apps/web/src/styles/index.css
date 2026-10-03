@@ -780,9 +780,9 @@ main {
 /* ---------- Dashboard ---------- */
 .hero-grid {
   display: grid;
-  grid-template-columns: 1.55fr 1fr;
+  grid-template-columns: 1.6fr 1fr;
   gap: 14px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 .hero-card {
   padding: 16px 20px;
@@ -917,9 +917,12 @@ main {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
+  grid-template-columns: 1.6fr 1fr;
   gap: 14px;
   margin-bottom: 14px;
+}
+.dashboard-grid > .panel {
+  margin-bottom: 0;
 }
 .chart-panel {
   min-width: 0;
