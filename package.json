@@ -18,6 +18,7 @@
     "import": "npm run import -w @projeto41/api --",
     "icons": "npm run icons -w @projeto41/api",
     "serve": "node scripts/supervisor.mjs",
+    "backup": "node scripts/backup.mjs",
     "autostart": "node scripts/autostart.mjs",
     "start": "npm run start -w @projeto41/api"
   },

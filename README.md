@@ -196,6 +196,148 @@ cadastrar operações de qualquer forma.
 - Exportação das operações de cripto em CSV pelo botão "Exportar CSV" na carteira
   (`GET http://127.0.0.1:3001/api/export/operations.csv`).
 
+## Backup na nuvem (criptografado)
+
+Seus dados (operações, posições, metas, aportes e histórico) ficam só no banco
+`data/projeto41.sqlite`, neste computador. O GitHub guarda apenas o código. Se o
+computador quebrar, for roubado ou o disco morrer **sem backup, os dados se
+perdem**.
+
+O Projeto 41 resolve isso com um backup diário **criptografado** numa pasta que
+sincroniza com a nuvem (aqui, o Google Drive):
+
+- o supervisor (`npm run serve` ou o autostart) faz o backup **uma vez a cada 24h**,
+  com o app rodando normalmente;
+- o arquivo é cifrado com **AES-256-GCM** usando uma chave derivada da sua senha.
+  Na nuvem só existe o arquivo cifrado: sem a senha, ninguém o abre (nem o Google);
+- são mantidos os **30 backups mais recentes** (`PROJETO41_BACKUP_KEEP`);
+- se a pasta não estiver acessível (Drive fechado ou deslogado), o supervisor
+  tenta de novo em 1 hora e registra o motivo em `data/projeto41.log`.
+
+### Configurar (uma vez)
+
+**1. Instale o Google Drive para computador.** Baixe em
+<https://www.google.com/drive/download/>, instale e entre na sua conta. Depois,
+descubra o caminho da pasta do seu Drive:
+
+| Sistema | Onde fica | Exemplo |
+| --- | --- | --- |
+| Windows | unidade `G:` (abra no Explorador de Arquivos) | `G:\Meu Drive` ou `G:\My Drive` |
+| macOS | `~/Library/CloudStorage/GoogleDrive-<seu e-mail>/` | `.../GoogleDrive-voce@gmail.com/Meu Drive` |
+| Linux | não há app oficial; use qualquer pasta sincronizada (rclone, Dropbox, Nextcloud…) | `~/Dropbox` |
+
+O nome da pasta raiz depende do idioma da conta ("Meu Drive" ou "My Drive").
+Qualquer outra pasta sincronizada com a nuvem (OneDrive, Dropbox) também serve.
+
+**2. Crie uma senha forte e guarde-a FORA do computador** antes de seguir:
+num gerenciador de senhas (Bitwarden, 1Password…) ou anotada em papel guardado
+em lugar seguro. Uma frase longa funciona bem (ex.: quatro ou cinco palavras
+aleatórias).
+
+> **Sem a senha, o backup não abre.** Ela fica no `.env` para o backup
+> automático, mas se o computador se perder e a senha só existia nele, os
+> backups na nuvem ficam inúteis. Não há como recuperar uma senha esquecida.
+
+**3. Configure o `.env`** (na raiz do projeto; veja o `.env.example`):
+
+```bash
+PROJETO41_BACKUP_DIR=G:\Meu Drive\Projeto41
+PROJETO41_BACKUP_PASSWORD=sua-senha-forte
+PROJETO41_BACKUP_KEEP=30
+```
+
+Ajuste o caminho ao que você viu no passo 1. Não precisa de aspas, mesmo com
+espaços. A pasta `Projeto41` é criada sozinha no primeiro backup. O `.env` nunca
+vai para o git.
+
+**4. Gere o primeiro backup:**
+
+```bash
+npm run backup
+```
+
+```text
+Backup criptografado: G:\Meu Drive\Projeto41\projeto41-2026-10-04T04-32-29Z.sqlite.enc
+```
+
+**5. Confira o status:**
+
+```bash
+npm run backup -- --status
+```
+
+```text
+Pasta: G:\Meu Drive\Projeto41
+Senha: definida
+Último backup: 2026-10-04T04:32:29.253Z (projeto41-2026-10-04T04-32-29Z.sqlite.enc)
+Backups na pasta: 1 (mantém 30)
+```
+
+**6. Teste a restauração (recomendado).** Um backup só vale se abrir. Restaure o
+arquivo gerado num banco de teste, sem mexer no seu banco real:
+
+```bash
+npm run backup -- --restore "G:\Meu Drive\Projeto41\<arquivo>.sqlite.enc" --to backups/teste-restauracao.sqlite
+```
+
+Se aparecer `Restaurado em ...`, a senha e o arquivo estão certos. Apague
+`backups/teste-restauracao.sqlite` depois (a pasta `backups/` não vai para o git).
+
+**7. Confirme que subiu para a nuvem:** abra <https://drive.google.com>, entre
+em "Meu Drive" › `Projeto41` e veja se o arquivo `.sqlite.enc` está lá.
+
+**8. Deixe automático:** o backup diário é feito pelo supervisor. Se ele já
+estava rodando antes de você configurar o `.env`, reinicie-o:
+
+```bash
+npm run serve -- --stop
+npm run serve            # ou reinicie o computador, se o autostart estiver ligado
+```
+
+### Comandos
+
+| Comando | O que faz |
+| --- | --- |
+| `npm run backup` | Faz um backup agora |
+| `npm run backup -- --status` | Mostra a pasta, se a senha está definida e o último backup |
+| `npm run backup -- --restore <arquivo>` | Restaura no banco do projeto (`--to <caminho>` para outro destino, `--force` para substituir um banco existente) |
+
+### Restaurar num computador novo (ou depois de perder o banco)
+
+1. Instale o Node e o projeto (veja [Instalação](#instalação-para-desenvolvimento))
+   e rode `npm ci`.
+2. Instale o Google Drive para computador, entre na mesma conta e espere a pasta
+   `Projeto41` sincronizar.
+3. Escolha o backup mais recente. O nome traz a data e a hora em UTC, por
+   exemplo `projeto41-2026-10-04T04-32-29Z.sqlite.enc`.
+4. Restaure (a senha é pedida se não estiver no `.env`):
+
+   ```bash
+   npm run backup -- --restore "G:\Meu Drive\Projeto41\projeto41-2026-10-04T04-32-29Z.sqlite.enc"
+   ```
+
+5. Se já existir um banco (`data/projeto41.sqlite`), o comando recusa
+   sobrescrever. Pare o app e repita com `--force`; o banco atual é guardado em
+   `backups/` antes de ser substituído:
+
+   ```bash
+   npm run serve -- --stop
+   npm run backup -- --restore "<arquivo>.sqlite.enc" --force
+   ```
+
+6. Suba o app (`npm run serve`), confira os dados e refaça o passo 3 de
+   [Configurar](#configurar-uma-vez) nesse computador para os backups continuarem.
+
+### Problemas comuns
+
+| Mensagem | O que fazer |
+| --- | --- |
+| `Backup desligado: defina PROJETO41_BACKUP_DIR e PROJETO41_BACKUP_PASSWORD no .env.` | Faltam as variáveis no `.env` (passo 3). |
+| `pasta de backup inacessível (...): o Google Drive está aberto?` | Abra o Google Drive e entre na conta. Confira se o caminho está certo ("Meu Drive" × "My Drive"). |
+| `Senha errada ou arquivo corrompido` | A senha não é a usada naquele backup. Trocar a senha vale só para os backups novos: os antigos continuam com a senha antiga. |
+| `... já existe. Pare o app ... com --force` | Veja o passo 5 de restauração. |
+| O backup diário não aparece | Rode `npm run backup -- --status` e procure `backup falhou` em `data/projeto41.log`. |
+
 ## Modo demonstração
 
 Para gravar vídeos/prints sem expor dados reais:

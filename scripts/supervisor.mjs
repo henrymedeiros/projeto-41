@@ -1,6 +1,7 @@
 // Mantém o Projeto 41 rodando em modo de produção (http://127.0.0.1:PORT):
 // instala dependências e compila quando preciso, reinicia o servidor se ele cair
 // e, quando o código muda (git pull, checkout, commit), recompila e reinicia sozinho.
+// Uma vez por dia faz o backup criptografado do banco (scripts/backup.mjs), se configurado.
 // Junto, mantém uma prévia ao vivo do código da pasta, ainda sem commit:
 //   http://127.0.0.1:4141   frontend (Vite, hot reload)
 //   http://127.0.0.1:4142   API de testes (tsx watch), sem tarefas agendadas,
@@ -24,6 +25,7 @@ import {
 import { spawn, spawnSync } from "node:child_process";
 import { delimiter as pathDelimiter, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { needsBackup } from "./backup.mjs";
 
 const DEFAULT_PORT = 3001;
 const DEFAULT_PREVIEW_PORT = 4141;
@@ -103,6 +105,7 @@ const paths = {
   log: resolve(dataDirectory, "projeto41.log"),
   lock: resolve(dataDirectory, "supervisor.lock.json"),
   stamp: resolve(dataDirectory, "build-stamp.json"),
+  backupStamp: resolve(dataDirectory, "backup-stamp.json"),
   nodeModules: resolve(root, "node_modules"),
   build: resolve(root, "apps/web/dist/index.html"),
   packageLock: resolve(root, "package-lock.json"),
@@ -377,6 +380,26 @@ async function checkForUpdates() {
   }
 }
 
+// ---------- backup diário ----------
+
+const BACKUP_RETRY_MS = 60 * 60_000;
+let lastBackupAttempt = 0;
+
+/**
+ * Backup criptografado uma vez por dia (processo à parte: o better-sqlite3 não fica preso
+ * aqui). Falhou (ex.: Google Drive fechado)? Tenta de novo em 1h, sem encher o log.
+ */
+async function backupIfDue() {
+  if (stopping || !needsBackup(readJson(paths.backupStamp))) return;
+  if (Date.now() - lastBackupAttempt < BACKUP_RETRY_MS) return;
+  lastBackupAttempt = Date.now();
+  try {
+    await run(process.execPath, [resolve(root, "scripts/backup.mjs")], { shell: false });
+  } catch (error) {
+    log(`backup falhou: ${error.message} (nova tentativa em 1h)`);
+  }
+}
+
 // ---------- linha de comando ----------
 
 function readLock() {
@@ -445,12 +468,15 @@ async function main() {
   if (previewUrl) console.log(`Prévia ao vivo (mudanças sem commit) em ${previewUrl}, API de testes em ${previewApiUrl}`);
   if (args.has("--open") && (await waitForServer())) openBrowser();
 
+  await backupIfDue();
+
   let checking = false;
   setInterval(async () => {
     if (checking) return;
     checking = true;
     try {
       await checkForUpdates();
+      await backupIfDue();
     } finally {
       checking = false;
     }

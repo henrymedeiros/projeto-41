@@ -33,6 +33,10 @@ um novo `[Unreleased]` vazio no topo.
   salvar uma operação atualiza as cotações de cripto.
 - B3: salvar uma operação atualiza a cotação do ticker dela (uma chamada à
   brapi, só para esse ticker).
+- Backup diário criptografado (AES-256-GCM, senha via scrypt) numa pasta
+  sincronizada com a nuvem, feito pelo supervisor (`PROJETO41_BACKUP_DIR`,
+  `PROJETO41_BACKUP_PASSWORD`). `npm run backup` gera, `--status` mostra o
+  último e `--restore` restaura.
 
 ### Changed
 
