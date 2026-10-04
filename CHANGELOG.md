@@ -31,6 +31,8 @@ um novo `[Unreleased]` vazio no topo.
   histórico e na distribuição. Só são excluídas quando não têm posições.
 - Cripto: o "auto" do preço na operação preenche com a cotação de hoje, e
   salvar uma operação atualiza as cotações de cripto.
+- B3: salvar uma operação atualiza a cotação do ticker dela (uma chamada à
+  brapi, só para esse ticker).
 
 ### Changed
 

@@ -242,6 +242,46 @@ describe("API", () => {
     await app.close();
   });
 
+  it("refreshes only the saved ticker's price after a B3 operation is created or edited", async () => {
+    db = createDatabase(":memory:");
+    const calls: string[] = [];
+    const app = buildApp({
+      db,
+      priceService: {
+        runAll: async () => [],
+        runCrypto: async () => {
+          calls.push("runCrypto");
+          return {};
+        },
+        refreshB3Price: async (symbol: string) => {
+          calls.push(`b3:${symbol}`);
+          return true;
+        }
+      }
+    });
+    const operation = {
+      portfolio: "b3",
+      type: "buy",
+      asset: "petr4",
+      date: "2026-06-09",
+      quantity: 10,
+      total: 400,
+      currency: "BRL"
+    };
+
+    const created = await app.inject({ method: "POST", url: "/api/operations", payload: operation });
+    const edited = await app.inject({
+      method: "PUT",
+      url: `/api/operations/${created.json().id}`,
+      payload: { ...operation, asset: "VALE3" }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(edited.statusCode).toBe(200);
+    expect(calls).toEqual(["b3:PETR4", "b3:VALE3"]);
+    await app.close();
+  });
+
   it("searches crypto assets through the price service", async () => {
     db = createDatabase(":memory:");
     const app = buildApp({

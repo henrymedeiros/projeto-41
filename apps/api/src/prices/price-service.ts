@@ -111,21 +111,33 @@ export function createPriceService(
     }
   }
 
+  // Atualiza a cotação de um ticker (uma chamada à brapi); devolve a mensagem de erro, se houver.
+  async function updateB3Price(symbol: string) {
+    try {
+      db.prices.upsert(await fetchB3Price(symbol, options.brapiToken, fetcher));
+      return null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `Unknown brapi error for ${symbol}`;
+      db.prices.markError(symbol, message, new Date().toISOString());
+      return message;
+    }
+  }
+
   async function runB3() {
     const symbols = [...new Set(db.operations.list("b3").map((operation) => operation.asset))];
     const errors: string[] = [];
     let updated = 0;
     for (const symbol of symbols) {
-      try {
-        db.prices.upsert(await fetchB3Price(symbol, options.brapiToken, fetcher));
-        updated += 1;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : `Unknown brapi error for ${symbol}`;
-        db.prices.markError(symbol, message, new Date().toISOString());
-        errors.push(message);
-      }
+      const error = await updateB3Price(symbol);
+      if (error) errors.push(error);
+      else updated += 1;
     }
     return { provider: "b3", updated, errors };
+  }
+
+  // Ao salvar uma operação da B3: só o ticker dela (a brapi cobra uma chamada por ticker).
+  async function refreshB3Price(symbol: string) {
+    return (await updateB3Price(symbol)) === null;
   }
 
   async function runCurrency() {
@@ -150,6 +162,7 @@ export function createPriceService(
   return {
     runCrypto,
     runB3,
+    refreshB3Price,
     runCurrency,
     ensureCryptoPrice,
     quoteCrypto,
