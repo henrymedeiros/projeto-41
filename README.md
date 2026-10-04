@@ -191,7 +191,7 @@ cadastrar operações de qualquer forma.
 
 - Tudo fica em `data/` (banco SQLite + ícones). Essa pasta é ignorada pelo git.
 - O servidor escuta apenas em `127.0.0.1`; nada é exposto para a rede.
-- `Projeto 41.xlsx`, `.env`, banco e backups nunca são versionados.
+- `.env`, banco e backups nunca são versionados.
 - Exportação manual dos dados: `GET http://127.0.0.1:3001/api/export`.
 - Exportação das operações de cripto em CSV pelo botão "Exportar CSV" na carteira
   (`GET http://127.0.0.1:3001/api/export/operations.csv`).
@@ -364,7 +364,3 @@ npm run build      # build de produção
 
 Monorepo TypeScript: React + Vite no frontend, Fastify + better-sqlite3 no
 backend, Zod nos contratos, Recharts nos gráficos e Vitest nos testes.
-
-> O repositório inclui um importador legado (`npm run import`) que migra uma
-> planilha específica do autor original. Ele é opcional e não é necessário para
-> usar o app — comece do zero pela interface.

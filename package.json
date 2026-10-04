@@ -15,7 +15,6 @@
     "test:watch": "vitest",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
-    "import": "npm run import -w @projeto41/api --",
     "icons": "npm run icons -w @projeto41/api",
     "serve": "node scripts/supervisor.mjs",
     "backup": "node scripts/backup.mjs",

@@ -58,15 +58,9 @@ Falhas mantem o ultimo valor valido e aparecem na interface.
 
 ## Dados
 
-O banco fica em `data/projeto41.sqlite`. A importacao inicial e idempotente:
-
-```bash
-npm run import -- --dry-run
-npm run import -- --confirm
-```
-
-Antes de uma nova importacao, o banco existente e copiado para `backups/`.
-Planilha, banco, backups e `.env` sao ignorados pelo Git.
+O banco fica em `data/projeto41.sqlite`. Banco, backups e `.env` sao
+ignorados pelo Git. Backup diario criptografado na nuvem: veja "Backup na
+nuvem" no README (`npm run backup`).
 
 ## Verificacao
 

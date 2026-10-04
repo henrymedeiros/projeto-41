@@ -52,6 +52,9 @@ um novo `[Unreleased]` vazio no topo.
 
 - `npm run windows:shortcut` (só funcionava com o projeto dentro do WSL),
   substituído por `npm run autostart`. O log agora fica em `data/projeto41.log`.
+- Importador legado da planilha do autor original (`npm run import`), com o
+  leitor de XLSX e as dependências `adm-zip` e `fast-xml-parser`. O app começa
+  do zero pela interface; a tabela `imports` deixa de ser criada em bancos novos.
 
 ## [0.5.0] - 2026-06-17
 

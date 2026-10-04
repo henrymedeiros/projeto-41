@@ -283,14 +283,6 @@ export function createDatabase(path: string) {
             payload: JSON.stringify(snapshot.payload),
             priceTimes: JSON.stringify(snapshot.priceTimes ?? {})
           })
-    },
-    imports: {
-      has: (fingerprint: string) =>
-        Boolean(raw.prepare("SELECT 1 FROM imports WHERE fingerprint=?").get(fingerprint)),
-      record: (fingerprint: string, report: unknown) =>
-        raw
-          .prepare("INSERT INTO imports(fingerprint, imported_at, report) VALUES (?,?,?)")
-          .run(fingerprint, new Date().toISOString(), JSON.stringify(report))
     }
   };
 }
@@ -356,11 +348,6 @@ function migrate(db: Database.Database) {
       total_brl REAL NOT NULL,
       payload TEXT NOT NULL,
       price_times TEXT NOT NULL DEFAULT '{}'
-    );
-    CREATE TABLE IF NOT EXISTS imports (
-      fingerprint TEXT PRIMARY KEY,
-      imported_at TEXT NOT NULL,
-      report TEXT NOT NULL
     );
   `);
 
