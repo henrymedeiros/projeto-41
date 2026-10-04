@@ -42,6 +42,7 @@ export type Dashboard = {
   prices: Price[];
   portfolios: { crypto: Asset[]; b3: Asset[] };
   reserveBrl: number;
+  customCategories?: { key: string; label: string }[];
   updatedAt: string;
 };
 
@@ -88,7 +89,7 @@ export type B3SearchResult = {
   currency: string;
 };
 
-export type AllocationTarget = { category: string; weight: number };
+export type AllocationTarget = { category: string; weight: number; label: string | null; custom: boolean };
 
 export type PlanningForm = {
   initialCapital: number;

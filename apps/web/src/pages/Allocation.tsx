@@ -1,7 +1,9 @@
-import { Target } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Target, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { Donut } from "../components/charts.js";
-import { Empty, MiniStat, Panel, SectionHeading } from "../components/ui.js";
+import { useConfirm } from "../components/dialog.js";
+import { Button, Empty, IconButton, MiniStat, Panel, SectionHeading } from "../components/ui.js";
 import { api } from "../lib/api.js";
 import { categoryLabel, money, percent } from "../lib/format.js";
 import { useToast } from "../lib/toast.js";
@@ -14,6 +16,20 @@ const aliasToCategory: Record<string, string> = {
   renda_fixa: "fixed_income",
   acoes_globais: "global"
 };
+
+// Nomes das classes padrão na Alocação; as customizadas trazem o próprio nome.
+const defaultLabels: Record<string, string> = {
+  bitcoin: "Bitcoin",
+  shitcoins: "Altcoins",
+  acoes_globais: "Ações Globais",
+  bolsa_brasil: "Ações Brasileiras",
+  caixa_br: "Caixa (BRL)",
+  dolar: "Caixa (USD)",
+  renda_fixa: "Renda Fixa"
+};
+
+const targetLabel = (target: AllocationTarget) =>
+  target.label ?? defaultLabels[target.category] ?? categoryLabel(target.category);
 
 function actualValue(category: string, dashboard: Dashboard) {
   if (category === "bitcoin") {
@@ -28,10 +44,15 @@ function actualValue(category: string, dashboard: Dashboard) {
 }
 
 const oneDecimal = (weight: number) => `${(weight * 100).toFixed(1).replace(".", ",")}%`;
+// Meta em % com até uma casa ("25", "2,5"), para o campo de digitação.
+const percentText = (weight: number) => String(Math.round(weight * 1000) / 10).replace(".", ",");
 
 export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [targets, setTargets] = useState<AllocationTarget[]>([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [adding, setAdding] = useState(false);
   const load = useCallback(() => api<AllocationTarget[]>("/allocation").then(setTargets), []);
   useEffect(() => void load(), [load]);
 
@@ -45,6 +66,7 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
           const actual = actualValue(target.category, dashboard);
           return {
             ...target,
+            name: targetLabel(target),
             actual,
             actualWeight: investable > 0 ? actual / investable : 0
           };
@@ -61,11 +83,7 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
     () =>
       rows
         .filter((row) => row.weight > 0)
-        .map((row) => ({
-          key: row.category,
-          label: categoryLabel(row.category),
-          value: row.weight
-        })),
+        .map((row) => ({ key: row.category, label: row.name, value: row.weight })),
     [rows]
   );
 
@@ -76,8 +94,48 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
   }
 
   async function commit(category: string, weight: number) {
-    await api(`/allocation/${category}`, { method: "PUT", body: JSON.stringify({ weight }) });
-    toast.notify("Meta atualizada");
+    try {
+      await api(`/allocation/${category}`, { method: "PUT", body: JSON.stringify({ weight }) });
+      toast.notify("Meta atualizada");
+    } catch (error) {
+      toast.notify(error instanceof Error ? error.message : "Falha ao salvar a meta", "error");
+    }
+  }
+
+  async function addCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newLabel.trim()) return;
+    setAdding(true);
+    try {
+      const created = await api<AllocationTarget>("/allocation/categories", {
+        method: "POST",
+        body: JSON.stringify({ label: newLabel })
+      });
+      setTargets((current) => [...current, created]);
+      setNewLabel("");
+      toast.notify(`Categoria "${created.label}" criada; cadastre as posições em Caixa e renda fixa`);
+    } catch (error) {
+      toast.notify(error instanceof Error ? error.message : "Falha ao criar a categoria", "error");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function removeCategory(target: AllocationTarget) {
+    const ok = await confirm({
+      title: "Excluir categoria",
+      message: `Remover "${targetLabel(target)}" e a meta dela?`,
+      tone: "danger",
+      confirmLabel: "Excluir"
+    });
+    if (!ok) return;
+    try {
+      await api(`/allocation/${target.category}`, { method: "DELETE" });
+      setTargets((current) => current.filter((item) => item.category !== target.category));
+      toast.notify("Categoria excluída");
+    } catch (error) {
+      toast.notify(error instanceof Error ? error.message : "Falha ao excluir a categoria", "error");
+    }
   }
 
   return (
@@ -97,13 +155,13 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
         />
       </div>
 
-      <Panel title="Real x ideal" subtitle="Arraste o marcador para definir a meta de cada classe">
+      <Panel title="Real x ideal" subtitle="Arraste o marcador ou digite a meta de cada classe">
         <div className="allocation-split">
           <div className="allocation-list">
             {rows.map((row) => (
               <div className="allocation-row" key={row.category}>
                 <div className="allocation-name">
-                  <strong>{categoryLabel(row.category)}</strong>
+                  <strong>{row.name}</strong>
                   <span>
                     {money(row.actual)} · {percent(row.actualWeight)} atual
                   </span>
@@ -122,7 +180,7 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
                     max={100}
                     step={0.5}
                     value={+(row.weight * 100).toFixed(1)}
-                    aria-label={`Meta de ${categoryLabel(row.category)}`}
+                    aria-label={`Meta de ${row.name}`}
                     onChange={(event) => setWeight(row.category, Number(event.target.value) / 100)}
                     onPointerUp={(event) =>
                       void commit(row.category, Number((event.target as HTMLInputElement).value) / 100)
@@ -132,10 +190,37 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
                     }
                   />
                 </div>
-                <strong className="alloc-target-value">{oneDecimal(row.weight)}</strong>
+                <TargetInput
+                  label={row.name}
+                  weight={row.weight}
+                  onChange={(weight) => setWeight(row.category, weight)}
+                  onCommit={(weight) => void commit(row.category, weight)}
+                />
+                {row.custom ? (
+                  <IconButton
+                    icon={Trash2}
+                    label={`Excluir ${row.name}`}
+                    tone="danger"
+                    onClick={() => void removeCategory(row)}
+                  />
+                ) : (
+                  <span aria-hidden />
+                )}
               </div>
             ))}
             {!rows.length && <Empty icon={Target} text="Nenhuma meta de alocação definida." />}
+            <form className="alloc-add" onSubmit={addCategory}>
+              <input
+                value={newLabel}
+                maxLength={40}
+                placeholder="Nova categoria (ex.: Imóveis)"
+                aria-label="Nome da nova categoria"
+                onChange={(event) => setNewLabel(event.target.value)}
+              />
+              <Button type="submit" variant="ghost" icon={Plus} disabled={adding || !newLabel.trim()}>
+                Adicionar
+              </Button>
+            </form>
           </div>
           {rows.length > 0 && (
             <aside className="allocation-chart">
@@ -145,6 +230,78 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
           )}
         </div>
       </Panel>
+    </div>
+  );
+}
+
+/**
+ * Meta digitada em %. Acompanha o slider enquanto não está em edição; ao digitar, o slider
+ * e o donut acompanham. Salva ao sair do campo ou com Enter, só se o valor mudou; Esc desfaz.
+ */
+function TargetInput({
+  label,
+  weight,
+  onChange,
+  onCommit
+}: {
+  label: string;
+  weight: number;
+  onChange: (weight: number) => void;
+  onCommit: (weight: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const weightAtFocus = useRef(weight);
+  const cancelled = useRef(false);
+  const selectingOnClick = useRef(false);
+
+  function parse(text: string) {
+    if (!text.trim()) return null;
+    const value = Number(text.replace(",", "."));
+    return Number.isFinite(value) ? Math.round(Math.min(100, Math.max(0, value)) * 10) / 1000 : null;
+  }
+
+  return (
+    <div className="alloc-input">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft ?? percentText(weight)}
+        aria-label={`Meta de ${label} em %`}
+        // O foco só seleciona o texto (digitar substitui a meta). Não mexe no valor: regravar o
+        // texto aqui desfaria a seleção e o que fosse digitado iria para o fim do valor antigo.
+        onFocus={(event) => {
+          weightAtFocus.current = weight;
+          selectingOnClick.current = true;
+          event.target.select();
+        }}
+        onMouseUp={(event) => {
+          // no Chrome o mouseup do clique que deu foco desfaz a seleção feita no onFocus
+          if (selectingOnClick.current) event.preventDefault();
+          selectingOnClick.current = false;
+        }}
+        onChange={(event) => {
+          selectingOnClick.current = false;
+          setDraft(event.target.value);
+          const next = parse(event.target.value);
+          if (next !== null) onChange(next);
+        }}
+        onBlur={() => {
+          const next = draft === null || cancelled.current ? null : parse(draft);
+          cancelled.current = false;
+          selectingOnClick.current = false;
+          setDraft(null);
+          if (next === null) onChange(weightAtFocus.current);
+          else if (next !== weightAtFocus.current) onCommit(next);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+          if (event.key === "Escape") {
+            cancelled.current = true;
+            event.currentTarget.blur();
+          }
+        }}
+      />
+      <span>%</span>
     </div>
   );
 }

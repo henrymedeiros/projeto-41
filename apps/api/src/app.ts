@@ -3,6 +3,8 @@ import staticPlugin from "@fastify/static";
 import Fastify from "fastify";
 import {
   contributionSchema,
+  customCategoryKey,
+  isCustomCategory,
   manualPositionSchema,
   operationSchema
 } from "@projeto41/contracts";
@@ -159,14 +161,23 @@ export function buildApp({
     return { ok: true, removed, portfolios: buildPortfolios(db) };
   });
 
+  // Posição numa categoria customizada só se a categoria existir na Alocação.
+  function unknownCategory(category: string) {
+    return isCustomCategory(category) && !db.targets.list().some((target) => target.category === category);
+  }
+
   app.get("/api/positions", async () => db.positions.list());
   app.post("/api/positions", async (request, reply) => {
-    const id = db.positions.upsert(manualPositionSchema.parse(request.body));
+    const position = manualPositionSchema.parse(request.body);
+    if (unknownCategory(position.category)) return reply.status(400).send({ error: "Categoria inexistente" });
+    const id = db.positions.upsert(position);
     return reply.status(201).send({ id });
   });
-  app.put("/api/positions/:id", async (request) => {
+  app.put("/api/positions/:id", async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
-    db.positions.upsert({ ...manualPositionSchema.parse(request.body), id });
+    const position = manualPositionSchema.parse(request.body);
+    if (unknownCategory(position.category)) return reply.status(400).send({ error: "Categoria inexistente" });
+    db.positions.upsert({ ...position, id });
     return { ok: true };
   });
   app.delete("/api/positions/:id", async (request) => {
@@ -199,7 +210,34 @@ export function buildApp({
     return { ok: true };
   });
 
-  app.get("/api/allocation", async () => db.targets.list());
+  app.get("/api/allocation", async () =>
+    db.targets.list().map((target) => ({ ...target, custom: isCustomCategory(target.category) }))
+  );
+  app.post("/api/allocation/categories", async (request, reply) => {
+    const { label } = z.object({ label: z.string().trim().min(1).max(40) }).parse(request.body);
+    const category = customCategoryKey(label);
+    if (!category) return reply.status(400).send({ error: "Use letras ou números no nome da categoria" });
+    if (db.targets.list().some((target) => target.category === category)) {
+      return reply.status(409).send({ error: `Já existe uma categoria "${label}"` });
+    }
+    db.targets.create(category, label);
+    return reply.status(201).send({ category, weight: 0, label, custom: true });
+  });
+  // Só categorias customizadas, e sem posições: apagar com posições tiraria dinheiro do patrimônio.
+  app.delete("/api/allocation/:category", async (request, reply) => {
+    const { category } = z.object({ category: z.string().min(1) }).parse(request.params);
+    if (!isCustomCategory(category)) {
+      return reply.status(400).send({ error: "Categorias padrão não podem ser removidas" });
+    }
+    const positions = db.positions.countByCategory(category);
+    if (positions > 0) {
+      return reply.status(409).send({
+        error: `Há ${positions} ${positions === 1 ? "posição" : "posições"} nesta categoria; mova ou exclua antes`
+      });
+    }
+    db.targets.remove(category);
+    return { ok: true };
+  });
   app.put("/api/allocation/:category", async (request) => {
     const { category } = z.object({ category: z.string().min(1) }).parse(request.params);
     const { weight } = z.object({ weight: z.number().min(0).max(1) }).parse(request.body);

@@ -2228,7 +2228,7 @@ main {
 }
 .allocation-row {
   display: grid;
-  grid-template-columns: 170px 1fr 64px;
+  grid-template-columns: 170px 1fr 78px 32px;
   gap: 18px;
   align-items: center;
   padding: 14px 4px;
@@ -2314,12 +2314,57 @@ main {
 .alloc-range:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 1px var(--positive), 0 0 0 4px var(--positive-soft);
 }
-.alloc-target-value {
+.alloc-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--input-bg);
+  transition: var(--transition);
+}
+.alloc-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.alloc-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 0 7px 9px;
+  border: 0;
+  outline: none;
+  background: transparent;
   text-align: right;
   font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--positive);
+}
+.alloc-input span {
+  padding: 0 9px 0 3px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.alloc-add {
+  display: flex;
+  gap: 10px;
+  padding: 14px 4px 4px;
+  border-top: 1px solid var(--border);
+}
+.alloc-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: var(--transition);
+}
+.alloc-add input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* ---------- Empty / loading / skeleton ---------- */
@@ -2498,7 +2543,7 @@ main {
     grid-template-columns: 1fr;
   }
   .allocation-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
   .allocation-chart {
@@ -2562,7 +2607,7 @@ main {
     font-size: 30px;
   }
   .allocation-row {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr 78px 32px;
     gap: 10px 12px;
   }
   .alloc-slider {

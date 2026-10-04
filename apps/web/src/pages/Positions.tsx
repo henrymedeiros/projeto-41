@@ -1,5 +1,5 @@
-import { Banknote, Coins, DollarSign, Landmark, PiggyBank, Plus, Save, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Banknote, Coins, DollarSign, Landmark, PiggyBank, Plus, Save, Tag, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Drawer, useConfirm } from "../components/dialog.js";
 import { AssetIcon, Button, Card, Empty, Field, NumberInput, SectionHeading } from "../components/ui.js";
@@ -7,17 +7,19 @@ import { api } from "../lib/api.js";
 import { currency as fmtCurrency, money, percent } from "../lib/format.js";
 import { institutionIconUrl } from "../lib/icons.js";
 import { useToast } from "../lib/toast.js";
-import type { ManualPosition } from "../lib/types.js";
+import type { AllocationTarget, ManualPosition } from "../lib/types.js";
 
-const groups = [
+type Group = { id: string; label: string; icon: typeof Banknote; hint: string; tracksInvested: boolean };
+
+const builtInGroups: Group[] = [
   { id: "dollar", label: "Dólar", icon: DollarSign, hint: "Contas e carteiras em dólar", tracksInvested: false },
   { id: "cash", label: "Caixa BR", icon: Banknote, hint: "Saldo disponível em reais", tracksInvested: false },
   { id: "reserve", label: "Reserva de emergência", icon: PiggyBank, hint: "Liquidez para imprevistos", tracksInvested: false },
   { id: "fixed_income", label: "Renda fixa", icon: Landmark, hint: "Tesouro e títulos", tracksInvested: true },
   { id: "global", label: "Ações globais", icon: Coins, hint: "Exposição internacional", tracksInvested: true }
-] as const;
+];
 
-const tracksInvested = (category: string) =>
+const tracksInvested = (groups: Group[], category: string) =>
   groups.find((group) => group.id === category)?.tracksInvested ?? false;
 
 export function PositionsPage({ onChanged }: { onChanged: () => Promise<void> }) {
@@ -25,9 +27,29 @@ export function PositionsPage({ onChanged }: { onChanged: () => Promise<void> })
   const confirm = useConfirm();
   const [positions, setPositions] = useState<ManualPosition[]>([]);
   const [editing, setEditing] = useState<Partial<ManualPosition> | null>(null);
+  const [customCategories, setCustomCategories] = useState<AllocationTarget[]>([]);
 
   const load = useCallback(() => api<ManualPosition[]>("/positions").then(setPositions), []);
   useEffect(() => void load(), [load]);
+  // Categorias criadas na Alocação viram grupos aqui, depois das padrão.
+  useEffect(() => {
+    void api<AllocationTarget[]>("/allocation").then((targets) =>
+      setCustomCategories(targets.filter((target) => target.custom))
+    );
+  }, []);
+  const groups = useMemo<Group[]>(
+    () => [
+      ...builtInGroups,
+      ...customCategories.map((target) => ({
+        id: target.category,
+        label: target.label ?? target.category,
+        icon: Tag,
+        hint: "Categoria personalizada",
+        tracksInvested: true
+      }))
+    ],
+    [customCategories]
+  );
 
   async function remove(position: ManualPosition) {
     const ok = await confirm({
@@ -112,6 +134,7 @@ export function PositionsPage({ onChanged }: { onChanged: () => Promise<void> })
 
       {editing && (
         <PositionDrawer
+          groups={groups}
           initial={editing}
           onClose={() => setEditing(null)}
           onDelete={editing.id ? () => remove(editing as ManualPosition) : undefined}
@@ -127,11 +150,13 @@ export function PositionsPage({ onChanged }: { onChanged: () => Promise<void> })
 }
 
 function PositionDrawer({
+  groups,
   initial,
   onClose,
   onSaved,
   onDelete
 }: {
+  groups: Group[];
   initial: Partial<ManualPosition>;
   onClose: () => void;
   onSaved: () => void;
@@ -156,7 +181,7 @@ function PositionDrawer({
       const payload = {
         category,
         name: name.trim(),
-        invested: tracksInvested(category) ? Number(invested) || 0 : 0,
+        invested: tracksInvested(groups, category) ? Number(invested) || 0 : 0,
         currentValue: Number(currentValue) || 0,
         currency: currencyCode,
         notes: initial.notes ?? ""
@@ -216,7 +241,7 @@ function PositionDrawer({
           </Field>
         </div>
         <div className="field-row">
-          {tracksInvested(category) && (
+          {tracksInvested(groups, category) && (
             <Field label={`Investimento (${currencyCode})`}>
               <NumberInput value={invested} min="0" onChange={(event) => setInvested(event.target.value)} />
             </Field>

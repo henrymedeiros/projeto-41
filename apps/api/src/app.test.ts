@@ -415,3 +415,62 @@ describe("API", () => {
     await app.close();
   });
 });
+
+describe("allocation categories", () => {
+  const position = (category: string) => ({
+    category,
+    name: "Apartamento",
+    invested: 0,
+    currentValue: 300000,
+    currency: "BRL"
+  });
+
+  it("creates a custom category with zero weight and lists it as custom", async () => {
+    db = createDatabase(":memory:");
+    const app = buildApp({ db, priceService: { runAll: async () => [] } });
+
+    const created = await app.inject({ method: "POST", url: "/api/allocation/categories", payload: { label: " Imóveis " } });
+    const duplicate = await app.inject({ method: "POST", url: "/api/allocation/categories", payload: { label: "imoveis" } });
+    const blank = await app.inject({ method: "POST", url: "/api/allocation/categories", payload: { label: "!!!" } });
+    const listed = await app.inject({ method: "GET", url: "/api/allocation" });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toEqual({ category: "custom_imoveis", weight: 0, label: "Imóveis", custom: true });
+    expect(duplicate.statusCode).toBe(409);
+    expect(blank.statusCode).toBe(400);
+    expect(listed.json()).toContainEqual({ category: "custom_imoveis", weight: 0, label: "Imóveis", custom: true });
+    expect(listed.json()).toContainEqual({ category: "bitcoin", weight: 0.25, label: null, custom: false });
+    await app.close();
+  });
+
+  it("accepts positions only in custom categories that exist", async () => {
+    db = createDatabase(":memory:");
+    const app = buildApp({ db, priceService: { runAll: async () => [] } });
+
+    const unknown = await app.inject({ method: "POST", url: "/api/positions", payload: position("custom_imoveis") });
+    await app.inject({ method: "POST", url: "/api/allocation/categories", payload: { label: "Imóveis" } });
+    const known = await app.inject({ method: "POST", url: "/api/positions", payload: position("custom_imoveis") });
+
+    expect(unknown.statusCode).toBe(400);
+    expect(known.statusCode).toBe(201);
+    await app.close();
+  });
+
+  it("removes a custom category only when no position uses it, and never a default one", async () => {
+    db = createDatabase(":memory:");
+    const app = buildApp({ db, priceService: { runAll: async () => [] } });
+    await app.inject({ method: "POST", url: "/api/allocation/categories", payload: { label: "Imóveis" } });
+    const { id } = (await app.inject({ method: "POST", url: "/api/positions", payload: position("custom_imoveis") })).json();
+
+    const builtIn = await app.inject({ method: "DELETE", url: "/api/allocation/bitcoin" });
+    const inUse = await app.inject({ method: "DELETE", url: "/api/allocation/custom_imoveis" });
+    await app.inject({ method: "DELETE", url: `/api/positions/${id}` });
+    const removed = await app.inject({ method: "DELETE", url: "/api/allocation/custom_imoveis" });
+
+    expect(builtIn.statusCode).toBe(400);
+    expect(inUse.statusCode).toBe(409);
+    expect(removed.statusCode).toBe(200);
+    expect(db.targets.list().some((target) => target.category === "custom_imoveis")).toBe(false);
+    await app.close();
+  });
+});

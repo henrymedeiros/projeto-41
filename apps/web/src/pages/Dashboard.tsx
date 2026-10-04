@@ -53,7 +53,8 @@ export function DashboardPage({ data }: { data: Dashboard }) {
       { key: "dollar", label: "Dólar", value: data.categories.dollar ?? 0 },
       { key: "cash", label: "Caixa BR", value: data.categories.cash ?? 0 },
       { key: "fixed_income", label: "Renda fixa", value: data.categories.fixed_income ?? 0 },
-      { key: "global", label: "Ações globais", value: data.categories.global ?? 0 }
+      { key: "global", label: "Ações globais", value: data.categories.global ?? 0 },
+      ...(data.customCategories ?? []).map(({ key, label }) => ({ key, label, value: data.categories[key] ?? 0 }))
     ]
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);

@@ -16,9 +16,31 @@ export const operationSchema = z.object({
   notes: z.string().trim().optional()
 });
 
+// Categorias customizadas (criadas na Alocação) usam a chave custom_<nome sem acento>.
+export const customCategoryPattern = /^custom_[a-z0-9]+(?:_[a-z0-9]+)*$/;
+
+export function isCustomCategory(category: string) {
+  return customCategoryPattern.test(category);
+}
+
+/** Chave de uma categoria customizada a partir do nome digitado; null se não sobrar letra ou número. */
+export function customCategoryKey(label: string) {
+  const slug = label
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .slice(0, 40)
+    .replace(/^_+|_+$/g, "");
+  return slug ? `custom_${slug}` : null;
+}
+
 export const manualPositionSchema = z.object({
   id: z.number().int().positive().optional(),
-  category: z.enum(["dollar", "cash", "reserve", "fixed_income", "global"]),
+  category: z.union([
+    z.enum(["dollar", "cash", "reserve", "fixed_income", "global"]),
+    z.string().regex(customCategoryPattern)
+  ]),
   name: z.string().trim().min(1),
   invested: z.number().nonnegative().default(0),
   currentValue: z.number().nonnegative(),

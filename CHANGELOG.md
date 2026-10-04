@@ -25,9 +25,18 @@ um novo `[Unreleased]` vazio no topo.
   `PROJETO41_PREVIEW_PORT` (`0` desliga).
 - `npm run autostart`: inicia o Projeto 41 junto com o sistema no Windows
   (nativo ou WSL), Linux (systemd do usuário) e macOS (LaunchAgent).
+- Alocação: a meta de cada classe pode ser digitada em % (além do slider), e
+  dá para criar categorias customizadas (ex.: Imóveis). Elas aparecem em Caixa e
+  renda fixa para receber posições, cujo valor entra no patrimônio, no
+  histórico e na distribuição. Só são excluídas quando não têm posições.
+- Cripto: o "auto" do preço na operação preenche com a cotação de hoje, e
+  salvar uma operação atualiza as cotações de cripto.
 
 ### Changed
 
+- Alocação: classes padrão renomeadas para Bitcoin, Altcoins, Ações Globais,
+  Ações Brasileiras, Caixa (BRL), Caixa (USD) e Renda Fixa (as metas existentes
+  são mantidas).
 - O snapshot diário do histórico agora é gravado ao ligar o servidor e de hora
   em hora, além das 23:59 (a última gravação do dia vira o fechamento). Assim um
   dia em que o computador ficou ligado em algum momento não se perde. Carteira

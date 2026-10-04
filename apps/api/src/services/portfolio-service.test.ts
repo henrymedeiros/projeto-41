@@ -79,6 +79,21 @@ describe("buildDashboard", () => {
   });
 });
 
+describe("custom categories", () => {
+  it("counts positions in a custom category and lists its label for the dashboard", () => {
+    db = createDatabase(":memory:");
+    db.targets.create("custom_imoveis", "Imóveis");
+    db.positions.upsert({ category: "cash", name: "Conta", invested: 0, currentValue: 1000, currency: "BRL" });
+    db.positions.upsert({ category: "custom_imoveis", name: "Apto", invested: 0, currentValue: 9000, currency: "BRL" });
+
+    const dashboard = buildDashboard(db);
+
+    expect(dashboard.totalBrl).toBe(10_000);
+    expect(dashboard.categories.custom_imoveis).toBe(9000);
+    expect(dashboard.customCategories).toEqual([{ key: "custom_imoveis", label: "Imóveis" }]);
+  });
+});
+
 describe("createDailySnapshot", () => {
   it("records the day and overwrites it on later runs", () => {
     db = createDatabase(":memory:");

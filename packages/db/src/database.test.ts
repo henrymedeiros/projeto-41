@@ -44,7 +44,25 @@ describe("database", () => {
 
     db = createDatabase(databasePath);
 
-    expect(db.targets.list()).toEqual([{ category: "custom", weight: 1 }]);
+    expect(db.targets.list()).toEqual([{ category: "custom", weight: 1, label: null }]);
+  });
+
+  it("keeps custom allocation categories with their label and counts positions in them", () => {
+    db = createDatabase(":memory:");
+    db.targets.create("custom_imoveis", "Imóveis");
+    db.targets.set("custom_imoveis", 0.2);
+    db.positions.upsert({ category: "custom_imoveis", name: "Apto", invested: 0, currentValue: 300_000, currency: "BRL" });
+
+    expect(db.targets.list().find((target) => target.category === "custom_imoveis")).toEqual({
+      category: "custom_imoveis",
+      weight: 0.2,
+      label: "Imóveis"
+    });
+    expect(db.positions.countByCategory("custom_imoveis")).toBe(1);
+    expect(db.positions.countByCategory("cash")).toBe(0);
+
+    db.targets.remove("custom_imoveis");
+    expect(db.targets.list().some((target) => target.category === "custom_imoveis")).toBe(false);
   });
 
   it("remembers the CoinGecko slug for a crypto symbol", () => {

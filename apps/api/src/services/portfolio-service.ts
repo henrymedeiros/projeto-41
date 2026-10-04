@@ -88,6 +88,10 @@ export function buildDashboard(db: AppDatabase, now = new Date()) {
     prices,
     portfolios,
     reserveBrl: categories.reserve ?? 0,
+    customCategories: db.targets
+      .list()
+      .filter((target) => target.label && target.category.startsWith("custom_"))
+      .map((target) => ({ key: target.category, label: target.label as string })),
     updatedAt: prices.reduce(
       (latest, price) => (price.fetchedAt > latest ? price.fetchedAt : latest),
       ""

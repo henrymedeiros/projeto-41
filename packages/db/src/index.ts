@@ -124,7 +124,13 @@ export function createDatabase(path: string) {
         return Number(result.lastInsertRowid);
       },
       remove: (id: number) =>
-        raw.prepare("DELETE FROM manual_positions WHERE id=?").run(id).changes
+        raw.prepare("DELETE FROM manual_positions WHERE id=?").run(id).changes,
+      countByCategory: (category: string) =>
+        (
+          raw.prepare("SELECT COUNT(*) AS count FROM manual_positions WHERE category=?").get(category) as {
+            count: number;
+          }
+        ).count
     },
     dividends: {
       list: () =>
@@ -211,10 +217,12 @@ export function createDatabase(path: string) {
           .run(error, fetchedAt, symbol)
     },
     targets: {
+      // label só existe nas categorias customizadas; as padrão têm nome fixo no frontend
       list: () =>
-        raw.prepare("SELECT category, weight FROM allocation_targets ORDER BY category").all() as {
+        raw.prepare("SELECT category, weight, label FROM allocation_targets ORDER BY category").all() as {
           category: string;
           weight: number;
+          label: string | null;
         }[],
       set: (category: string, weight: number) =>
         raw
@@ -222,7 +230,11 @@ export function createDatabase(path: string) {
             `INSERT INTO allocation_targets(category, weight) VALUES (?,?)
              ON CONFLICT(category) DO UPDATE SET weight=excluded.weight`
           )
-          .run(category, weight)
+          .run(category, weight),
+      create: (category: string, label: string) =>
+        raw.prepare("INSERT INTO allocation_targets(category, weight, label) VALUES (?, 0, ?)").run(category, label),
+      remove: (category: string) =>
+        raw.prepare("DELETE FROM allocation_targets WHERE category=?").run(category).changes
     },
     settings: {
       get: (key: string) =>
@@ -355,6 +367,7 @@ function migrate(db: Database.Database) {
   // Colunas adicionadas após o release inicial: garantem upgrade de bancos existentes.
   ensureColumn(db, "prices", "prev_price", "REAL");
   ensureColumn(db, "prices", "prev_day", "TEXT");
+  ensureColumn(db, "allocation_targets", "label", "TEXT");
 
   const targetCount = db
     .prepare("SELECT COUNT(*) AS count FROM allocation_targets")
