@@ -197,6 +197,51 @@ describe("API", () => {
     await app.close();
   });
 
+  it("refreshes crypto prices after a crypto operation is created or edited", async () => {
+    db = createDatabase(":memory:");
+    const calls: string[] = [];
+    const app = buildApp({
+      db,
+      priceService: {
+        runAll: async () => [],
+        runCrypto: async () => {
+          calls.push("runCrypto");
+          return { provider: "crypto", updated: 1, errors: [] };
+        },
+        ensureCryptoPrice: async () => {
+          calls.push("ensureCryptoPrice");
+          return true;
+        }
+      }
+    });
+    const operation = {
+      portfolio: "crypto",
+      type: "buy",
+      asset: "pendle",
+      date: "2024-12-15",
+      quantity: 70,
+      total: 294,
+      currency: "USD"
+    };
+
+    const created = await app.inject({ method: "POST", url: "/api/operations", payload: operation });
+    const edited = await app.inject({
+      method: "PUT",
+      url: `/api/operations/${created.json().id}`,
+      payload: { ...operation, total: 300 }
+    });
+    await app.inject({
+      method: "POST",
+      url: "/api/operations",
+      payload: { ...operation, portfolio: "b3", asset: "PETR4", currency: "BRL" }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(edited.statusCode).toBe(200);
+    expect(calls).toEqual(["runCrypto", "runCrypto"]);
+    await app.close();
+  });
+
   it("searches crypto assets through the price service", async () => {
     db = createDatabase(":memory:");
     const app = buildApp({

@@ -17,6 +17,7 @@ type B3SearchHit = { symbol: string; name: string; price: number; currency: stri
 
 type PriceService = {
   runAll(): Promise<unknown>;
+  runCrypto?(): Promise<unknown>;
   ensureCryptoPrice?(symbol: string): Promise<boolean>;
   quoteCrypto?(symbol: string, slug?: string): Promise<number | null>;
   searchCrypto?(query: string): Promise<CryptoSearchHit[]>;
@@ -121,13 +122,20 @@ export function buildApp({
     if (!priceService.searchB3) return [];
     return priceService.searchB3(q);
   });
+  // Depois de salvar uma operação de cripto, atualiza as cotações de cripto (uma chamada
+  // à CoinGecko para todos os ativos), para a carteira já aparecer com o preço de agora.
+  // Falha do provedor não impede o salvamento: o runCrypto registra o erro na cotação.
+  async function refreshCryptoPrices(operation: { portfolio: string; asset: string }) {
+    if (operation.portfolio !== "crypto") return;
+    if (priceService.runCrypto) await priceService.runCrypto();
+    else if (priceService.ensureCryptoPrice) await priceService.ensureCryptoPrice(operation.asset);
+  }
+
   app.post("/api/operations", async (request, reply) => {
     const operation = operationSchema.parse(request.body);
     rememberCryptoAsset(operation, request.body);
     const id = db.operations.create(operation);
-    if (operation.portfolio === "crypto" && priceService.ensureCryptoPrice) {
-      await priceService.ensureCryptoPrice(operation.asset);
-    }
+    await refreshCryptoPrices(operation);
     return reply.status(201).send({ id, portfolios: buildPortfolios(db) });
   });
   app.put("/api/operations/:id", async (request) => {
@@ -135,6 +143,7 @@ export function buildApp({
     const operation = operationSchema.parse(request.body);
     rememberCryptoAsset(operation, request.body);
     db.operations.update(id, operation);
+    await refreshCryptoPrices(operation);
     return { ok: true, portfolios: buildPortfolios(db) };
   });
   app.delete("/api/operations/:id", async (request) => {
