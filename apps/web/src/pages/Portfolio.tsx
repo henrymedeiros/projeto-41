@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Coins, Download, Pencil, Plus, Save, Sparkles, Trash2, Upload } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { B3AssetSearch } from "../components/B3AssetSearch.js";
 import { CryptoAssetSearch } from "../components/CryptoAssetSearch.js";
@@ -362,6 +362,7 @@ function OperationDrawer({
   );
   const solved = recent[2] as TradeField;
   const [saving, setSaving] = useState(false);
+  const [quoting, setQuoting] = useState(false);
 
   function editField(field: TradeField, raw: string) {
     const next = { ...fields, [field]: raw };
@@ -370,6 +371,24 @@ function OperationDrawer({
     next[target] = solveTrade(target, next);
     setFields(next);
     setRecent(order);
+  }
+
+  // Clique no "auto" do preço (cripto): preenche com a cotação de hoje na CoinGecko.
+  async function fillTodayPrice() {
+    if (!asset) {
+      toast.notify("Selecione um ativo na busca", "error");
+      return;
+    }
+    setQuoting(true);
+    try {
+      const params = new URLSearchParams({ symbol: asset, ...(slug ? { slug } : {}) });
+      const { price } = await api<{ price: number }>(`/crypto/quote?${params}`);
+      editField("unit", String(round(entryCurrency === "BRL" ? price * usdBrl : price)));
+    } catch (error) {
+      toast.notify(error instanceof Error ? error.message : "Falha ao buscar a cotação", "error");
+    } finally {
+      setQuoting(false);
+    }
   }
 
   // Troca a moeda de digitação convertendo preço e total (a quantidade não muda).
@@ -545,6 +564,8 @@ function OperationDrawer({
             solved={solved === "unit"}
             step="0.01"
             onChange={(value) => editField("unit", value)}
+            onAuto={isCrypto ? fillTodayPrice : undefined}
+            autoBusy={quoting}
           />
           <span className="trade-op" aria-hidden>=</span>
           <EqTerm
@@ -602,7 +623,9 @@ function EqTerm({
   value,
   solved,
   step = "any",
-  onChange
+  onChange,
+  onAuto,
+  autoBusy = false
 }: {
   label: string;
   code?: string;
@@ -610,17 +633,35 @@ function EqTerm({
   solved: boolean;
   step?: string;
   onChange: (value: string) => void;
+  onAuto?: () => void;
+  autoBusy?: boolean;
 }) {
+  // htmlFor explícito: sem ele o label se associaria ao botão "auto" (o primeiro controle
+  // dentro dele), e clicar no nome do campo buscaria a cotação.
+  const inputId = useId();
   function bump(direction: 1 | -1) {
     const delta = Number(step) || 0;
     const next = Math.max(0, round((Number(value) || 0) + direction * delta));
     onChange(String(next));
   }
   return (
-    <label className={`eq-term ${solved ? "solved" : ""}`}>
+    <label className={`eq-term ${solved ? "solved" : ""}`} htmlFor={inputId}>
       <span className="eq-label">
         <span className="eq-name">{label}</span>
-        {solved ? (
+        {solved && onAuto ? (
+          <button
+            type="button"
+            className="eq-auto eq-auto-action"
+            title="Preencher com o preço de hoje"
+            disabled={autoBusy}
+            onClick={(event) => {
+              event.preventDefault();
+              onAuto();
+            }}
+          >
+            <Sparkles size={11} /> {autoBusy ? "…" : "auto"}
+          </button>
+        ) : solved ? (
           <span className="eq-auto">
             <Sparkles size={11} /> auto
           </span>
@@ -630,6 +671,7 @@ function EqTerm({
       </span>
       <div className="eq-input">
         <NumberInput
+          id={inputId}
           value={value}
           min="0"
           step={step}

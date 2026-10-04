@@ -18,6 +18,7 @@ type B3SearchHit = { symbol: string; name: string; price: number; currency: stri
 type PriceService = {
   runAll(): Promise<unknown>;
   ensureCryptoPrice?(symbol: string): Promise<boolean>;
+  quoteCrypto?(symbol: string, slug?: string): Promise<number | null>;
   searchCrypto?(query: string): Promise<CryptoSearchHit[]>;
   searchB3?(query: string): Promise<B3SearchHit[]>;
 };
@@ -104,6 +105,16 @@ export function buildApp({
     const { q } = z.object({ q: z.string().trim().min(1).max(80) }).parse(request.query);
     if (!priceService.searchCrypto) return [];
     return priceService.searchCrypto(q);
+  });
+  // Cotação de hoje para preencher o preço no formulário de operação (não grava nada).
+  app.get("/api/crypto/quote", async (request, reply) => {
+    const { symbol, slug } = z
+      .object({ symbol: z.string().trim().min(1).max(30), slug: z.string().trim().min(1).max(120).optional() })
+      .parse(request.query);
+    const upper = symbol.toUpperCase();
+    const price = priceService.quoteCrypto ? await priceService.quoteCrypto(upper, slug) : null;
+    if (!price) return reply.status(404).send({ error: `Cotação de ${upper} indisponível` });
+    return { symbol: upper, price, currency: "USD" };
   });
   app.get("/api/b3/search", async (request) => {
     const { q } = z.object({ q: z.string().trim().min(1).max(80) }).parse(request.query);

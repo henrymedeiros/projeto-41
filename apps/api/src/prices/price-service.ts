@@ -97,6 +97,20 @@ export function createPriceService(
     }
   }
 
+  // Preço de hoje em USD sem gravar: o formulário pede antes de a operação existir.
+  async function quoteCrypto(symbol: string, slug?: string) {
+    try {
+      const { records } = await fetchCryptoPrices(
+        [{ symbol, slug: slug ?? slugFor(symbol) }],
+        options.coingeckoApiKey,
+        fetcher
+      );
+      return records[0]?.price ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async function runB3() {
     const symbols = [...new Set(db.operations.list("b3").map((operation) => operation.asset))];
     const errors: string[] = [];
@@ -138,6 +152,7 @@ export function createPriceService(
     runB3,
     runCurrency,
     ensureCryptoPrice,
+    quoteCrypto,
     searchCrypto,
     searchB3,
     runAll: () => Promise.all([runCrypto(), runB3(), runCurrency()])

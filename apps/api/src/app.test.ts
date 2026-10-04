@@ -218,6 +218,34 @@ describe("API", () => {
     await app.close();
   });
 
+  it("quotes today's crypto price without storing it", async () => {
+    db = createDatabase(":memory:");
+    const asked: { symbol: string; slug?: string }[] = [];
+    const app = buildApp({
+      db,
+      priceService: {
+        runAll: async () => [],
+        quoteCrypto: async (symbol: string, slug?: string) => {
+          asked.push({ symbol, slug });
+          return symbol === "PENDLE" ? 3.21 : null;
+        }
+      }
+    });
+
+    const found = await app.inject({ method: "GET", url: "/api/crypto/quote?symbol=pendle&slug=pendle" });
+    const missing = await app.inject({ method: "GET", url: "/api/crypto/quote?symbol=XYZ" });
+
+    expect(found.statusCode).toBe(200);
+    expect(found.json()).toEqual({ symbol: "PENDLE", price: 3.21, currency: "USD" });
+    expect(missing.statusCode).toBe(404);
+    expect(asked).toEqual([
+      { symbol: "PENDLE", slug: "pendle" },
+      { symbol: "XYZ", slug: undefined }
+    ]);
+    expect(db.prices.list()).toEqual([]);
+    await app.close();
+  });
+
   it("searches B3 assets through the price service", async () => {
     db = createDatabase(":memory:");
     const app = buildApp({
