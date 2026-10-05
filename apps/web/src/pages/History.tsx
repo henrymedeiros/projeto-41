@@ -1,7 +1,7 @@
-import { History as HistoryIcon } from "lucide-react";
+import { Download, History as HistoryIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AreaTrend } from "../components/charts.js";
-import { Empty, MiniStat, Panel, SectionHeading } from "../components/ui.js";
+import { Button, Empty, MiniStat, Panel, SectionHeading } from "../components/ui.js";
 import { longDate, money, percent } from "../lib/format.js";
 import { filterHistory } from "./Dashboard.js";
 import type { Snapshot } from "../lib/types.js";
@@ -13,6 +13,15 @@ const ranges = [
   { id: "1y", label: "1a" },
   { id: "all", label: "Tudo" }
 ] as const;
+
+function exportHistory() {
+  const link = document.createElement("a");
+  link.href = "/api/export/history.csv";
+  link.download = "historico-patrimonial.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
 
 export function HistoryPage({ history }: { history: Snapshot[] }) {
   const [range, setRange] = useState<(typeof ranges)[number]["id"]>("all");
@@ -26,7 +35,17 @@ export function HistoryPage({ history }: { history: Snapshot[] }) {
 
   return (
     <div className="history">
-      <SectionHeading title="Histórico patrimonial" subtitle="Snapshots diários às 23:59" />
+      <SectionHeading title="Histórico patrimonial" subtitle="Snapshots diários às 23:59">
+        <Button
+          variant="ghost"
+          className="export-btn"
+          icon={Download}
+          onClick={exportHistory}
+          disabled={!history.length}
+        >
+          Exportar CSV
+        </Button>
+      </SectionHeading>
 
       <div className="summary-row">
         <MiniStat label="Patrimônio atual" value={money(last?.totalBrl ?? 0)} />

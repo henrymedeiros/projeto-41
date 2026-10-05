@@ -13,6 +13,9 @@ um novo `[Unreleased]` vazio no topo.
 
 ### Added
 
+- Histórico: botão "Exportar CSV" baixa os snapshots diários
+  (`GET /api/export/history.csv`) com data, patrimônio em BRL, variação diária
+  e uma coluna por categoria.
 - `npm run serve`: supervisor que mantém o modo de produção no ar, instala e
   compila quando falta, reinicia o servidor se ele cair e recompila sozinho
   quando o código muda (`git pull`, checkout ou commit).

@@ -11,6 +11,7 @@ import {
 import type { AppDatabase } from "@projeto41/db";
 import { z } from "zod";
 import type { IconService } from "./icons/icon-service.js";
+import { buildHistoryCsv } from "./export/history-csv.js";
 import { buildOperationsCsv, parseOperationsCsv } from "./export/operations-csv.js";
 import { buildDashboard, buildPortfolios } from "./services/portfolio-service.js";
 
@@ -284,6 +285,11 @@ export function buildApp({
         errors: [error instanceof Error ? error.message : "Falha ao atualizar precos"]
       };
     }
+  });
+  app.get("/api/export/history.csv", async (_request, reply) => {
+    reply.header("Content-Type", "text/csv; charset=utf-8");
+    reply.header("Content-Disposition", `attachment; filename="historico-patrimonial.csv"`);
+    return buildHistoryCsv(db.snapshots.list());
   });
   app.get("/api/export/operations.csv", async (_request, reply) => {
     const operations = db.operations.list("crypto");

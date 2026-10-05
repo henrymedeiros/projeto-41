@@ -59,6 +59,25 @@ describe("API", () => {
     await app.close();
   });
 
+  it("exports the snapshot history as CSV", async () => {
+    db = createDatabase(":memory:");
+    db.snapshots.upsert({ date: "2026-06-10", totalBrl: 1100, payload: { crypto: 700, b3: 400 } });
+    db.snapshots.upsert({ date: "2026-06-09", totalBrl: 1000, payload: { crypto: 600, b3: 400 } });
+    const app = buildApp({ db, priceService: { runAll: async () => [] } });
+
+    const response = await app.inject({ method: "GET", url: "/api/export/history.csv" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+    expect(response.headers["content-disposition"]).toContain("historico-patrimonial.csv");
+    expect(response.body.split("\r\n")).toEqual([
+      "date,total_brl,daily_change,crypto,b3",
+      "2026-06-09,1000,0,600,400",
+      "2026-06-10,1100,0.1,700,400"
+    ]);
+    await app.close();
+  });
+
   it("exports crypto operations as CSV", async () => {
     db = createDatabase(":memory:");
     db.operations.create({
