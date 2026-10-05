@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import type { Contribution, ManualPosition, Operation } from "@projeto41/contracts";
+import type { Contribution, ManualPosition, ManualPositionInput, Operation } from "@projeto41/contracts";
 
 type SnapshotInput = {
   date: string;
@@ -100,16 +100,27 @@ export function createDatabase(path: string) {
         raw
           .prepare(
             `SELECT id, category, name, invested, current_value AS currentValue,
-             currency, notes FROM manual_positions ORDER BY category, id`
+             currency, notes, institution, yield_type AS yieldType, yield_rate AS yieldRate
+             FROM manual_positions ORDER BY category, id`
           )
-          .all() as (ManualPosition & { id: number })[],
-      upsert: (position: ManualPosition) => {
-        const values = { notes: null, ...position };
+          .all() as (Omit<ManualPosition, "institution"> & { id: number; institution: string | null })[],
+      upsert: (position: ManualPositionInput) => {
+        // mesmos padrões do contrato: a entrada pode vir sem eles
+        const values = {
+          notes: null,
+          invested: 0,
+          currency: "BRL",
+          yieldType: "none",
+          yieldRate: 0,
+          ...position,
+          institution: position.institution?.trim() || null
+        };
         if (position.id) {
           raw
             .prepare(
               `UPDATE manual_positions SET category=@category, name=@name, invested=@invested,
-               current_value=@currentValue, currency=@currency, notes=@notes WHERE id=@id`
+               current_value=@currentValue, currency=@currency, notes=@notes, institution=@institution,
+               yield_type=@yieldType, yield_rate=@yieldRate WHERE id=@id`
             )
             .run(values);
           return position.id;
@@ -117,8 +128,8 @@ export function createDatabase(path: string) {
         const result = raw
           .prepare(
             `INSERT INTO manual_positions
-             (category, name, invested, current_value, currency, notes)
-             VALUES (@category, @name, @invested, @currentValue, @currency, @notes)`
+             (category, name, invested, current_value, currency, notes, institution, yield_type, yield_rate)
+             VALUES (@category, @name, @invested, @currentValue, @currency, @notes, @institution, @yieldType, @yieldRate)`
           )
           .run(values);
         return Number(result.lastInsertRowid);
@@ -312,7 +323,10 @@ function migrate(db: Database.Database) {
       invested REAL NOT NULL DEFAULT 0,
       current_value REAL NOT NULL,
       currency TEXT NOT NULL CHECK(currency IN ('BRL','USD')),
-      notes TEXT
+      notes TEXT,
+      institution TEXT,
+      yield_type TEXT NOT NULL DEFAULT 'none',
+      yield_rate REAL NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS dividends (
       asset TEXT PRIMARY KEY,
@@ -355,6 +369,13 @@ function migrate(db: Database.Database) {
   ensureColumn(db, "prices", "prev_price", "REAL");
   ensureColumn(db, "prices", "prev_day", "TEXT");
   ensureColumn(db, "allocation_targets", "label", "TEXT");
+  // Rendimento das posições: as que já existiam em Real e Reserva começam em 100% do CDI.
+  const addedYield = ensureColumn(db, "manual_positions", "yield_type", "TEXT NOT NULL DEFAULT 'none'");
+  ensureColumn(db, "manual_positions", "yield_rate", "REAL NOT NULL DEFAULT 0");
+  ensureColumn(db, "manual_positions", "institution", "TEXT");
+  if (addedYield) {
+    db.exec("UPDATE manual_positions SET yield_type='cdi', yield_rate=1 WHERE category IN ('cash','reserve')");
+  }
 
   const targetCount = db
     .prepare("SELECT COUNT(*) AS count FROM allocation_targets")
@@ -375,7 +396,7 @@ function migrate(db: Database.Database) {
 
 function ensureColumn(db: Database.Database, table: string, column: string, type: string) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  if (!columns.some((entry) => entry.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-  }
+  if (columns.some((entry) => entry.name === column)) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  return true;
 }

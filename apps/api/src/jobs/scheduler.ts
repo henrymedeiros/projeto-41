@@ -17,6 +17,8 @@ export function startScheduler(
   };
   // ao ligar: um dia em que o servidor ficou no ar já ganha registro, mesmo sem chegar às 23:59
   recordSnapshot();
+  // CDI da renda mensal: na hora (o snapshot acima não depende dele) e junto com o dólar
+  void priceService.runCdi();
 
   const tasks = [
     cron.schedule("*/15 * * * *", () => void priceService.runCrypto(), {
@@ -25,9 +27,14 @@ export function startScheduler(
     cron.schedule("*/30 10-18 * * 1-5", () => void priceService.runB3(), {
       timezone
     }),
-    cron.schedule("0 */2 * * *", () => void priceService.runCurrency(), {
-      timezone
-    }),
+    cron.schedule(
+      "0 */2 * * *",
+      () => {
+        void priceService.runCurrency();
+        void priceService.runCdi();
+      },
+      { timezone }
+    ),
     // de hora em hora (depois da cripto do minuto 0) e no fechamento do dia
     cron.schedule("5 * * * *", recordSnapshot, { timezone }),
     cron.schedule("59 23 * * *", recordSnapshot, { timezone })

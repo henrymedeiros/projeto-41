@@ -113,7 +113,7 @@ export function AllocationPage({ dashboard }: { dashboard: Dashboard }) {
       });
       setTargets((current) => [...current, created]);
       setNewLabel("");
-      toast.notify(`Categoria "${created.label}" criada; cadastre as posições em Caixa e renda fixa`);
+      toast.notify(`Categoria "${created.label}" criada; cadastre as posições em Posições`);
     } catch (error) {
       toast.notify(error instanceof Error ? error.message : "Falha ao criar a categoria", "error");
     } finally {

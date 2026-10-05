@@ -1,6 +1,7 @@
 import type { AppDatabase } from "@projeto41/db";
 import {
   fetchB3Price,
+  fetchCdi,
   fetchCryptoPrices,
   fetchUsdBrl,
   searchB3Assets,
@@ -151,6 +152,18 @@ export function createPriceService(
     }
   }
 
+  // CDI para a renda mensal das posições (muda só nas reuniões do Copom).
+  async function runCdi() {
+    try {
+      db.prices.upsert(await fetchCdi(fetcher));
+      return { provider: "cdi", updated: 1, errors: [] as string[] };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown BCB error";
+      db.prices.markError("CDI", message, new Date().toISOString());
+      return { provider: "cdi", updated: 0, errors: [message] };
+    }
+  }
+
   async function searchCrypto(query: string) {
     return searchCryptoAssets(query, options.coingeckoApiKey, fetcher);
   }
@@ -164,11 +177,12 @@ export function createPriceService(
     runB3,
     refreshB3Price,
     runCurrency,
+    runCdi,
     ensureCryptoPrice,
     quoteCrypto,
     searchCrypto,
     searchB3,
-    runAll: () => Promise.all([runCrypto(), runB3(), runCurrency()])
+    runAll: () => Promise.all([runCrypto(), runB3(), runCurrency(), runCdi()])
   };
 }
 

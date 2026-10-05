@@ -94,6 +94,55 @@ describe("custom categories", () => {
   });
 });
 
+describe("monthly income", () => {
+  it("adds up the gross monthly income of positions, converting USD and using the stored CDI", () => {
+    db = createDatabase(":memory:");
+    db.prices.upsert({ symbol: "CDI", currency: "BRL", price: 0.1365, provider: "bcb", marketTime: null, fetchedAt: "2026-10-04T00:00:00Z", error: null });
+    db.prices.upsert({ symbol: "USDBRL", currency: "BRL", price: 5, provider: "bcb", marketTime: null, fetchedAt: "2026-10-04T00:00:00Z", error: null });
+    const conta = db.positions.upsert({ category: "cash", name: "Conta", invested: 0, currentValue: 10_000, currency: "BRL", yieldType: "cdi", yieldRate: 1 });
+    db.positions.upsert({ category: "fixed_income", name: "CDB", invested: 0, currentValue: 1000, currency: "USD", yieldType: "fixed", yieldRate: 0.12 });
+    db.positions.upsert({ category: "dollar", name: "Wise", invested: 0, currentValue: 500, currency: "USD", yieldType: "none", yieldRate: 0 });
+
+    const { monthlyIncome } = buildDashboard(db);
+
+    const cdb = 5000 * (1.12 ** (1 / 12) - 1);
+    expect(monthlyIncome.cdiAnnual).toBe(0.1365);
+    expect(monthlyIncome.totalBrl).toBeCloseTo(107.198 + cdb, 2);
+    expect(monthlyIncome.items.find((item) => item.id === conta)?.monthlyBrl).toBeCloseTo(107.198, 2);
+    expect(monthlyIncome.items).toHaveLength(2);
+    expect(monthlyIncome.cdiUnavailable).toBe(false);
+  });
+
+  it("names an income item by its institution when the position has no name", () => {
+    db = createDatabase(":memory:");
+    db.prices.upsert({ symbol: "CDI", currency: "BRL", price: 0.1375, provider: "bcb", marketTime: null, fetchedAt: "2026-10-04T00:00:00Z", error: null });
+    db.positions.upsert({ category: "cash", name: "", institution: "Nubank", currentValue: 1000, currency: "BRL", yieldType: "cdi", yieldRate: 1 });
+
+    expect(buildDashboard(db).monthlyIncome.items).toMatchObject([{ name: "Nubank" }]);
+  });
+
+  it("keeps using the last CDI but flags it when the latest fetch failed", () => {
+    db = createDatabase(":memory:");
+    db.prices.upsert({ symbol: "CDI", currency: "BRL", price: 0.1365, provider: "bcb", marketTime: "2026-09-17T03:00:00Z", fetchedAt: "2026-10-04T00:00:00Z", error: null });
+    db.prices.markError("CDI", "BCB returned 503 for the Selic history", "2026-10-05T00:00:00Z");
+    db.positions.upsert({ category: "cash", name: "Conta", invested: 0, currentValue: 10_000, currency: "BRL", yieldType: "cdi", yieldRate: 1 });
+
+    const { monthlyIncome } = buildDashboard(db);
+
+    expect(monthlyIncome).toMatchObject({ cdiAnnual: 0.1365, cdiUnavailable: true, cdiReference: "2026-09-17T03:00:00Z" });
+    expect(monthlyIncome.totalBrl).toBeGreaterThan(0);
+  });
+
+  it("flags CDI positions that can't be priced without the CDI rate", () => {
+    db = createDatabase(":memory:");
+    db.positions.upsert({ category: "cash", name: "Conta", invested: 0, currentValue: 10_000, currency: "BRL", yieldType: "cdi", yieldRate: 1 });
+
+    const { monthlyIncome } = buildDashboard(db);
+
+    expect(monthlyIncome).toMatchObject({ totalBrl: 0, cdiAnnual: null, cdiUnavailable: true });
+  });
+});
+
 describe("createDailySnapshot", () => {
   it("records the day and overwrites it on later runs", () => {
     db = createDatabase(":memory:");

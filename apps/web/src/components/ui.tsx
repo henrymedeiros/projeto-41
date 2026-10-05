@@ -57,7 +57,9 @@ export function AnimatedNumber({
     if (mounted.current) setFlash(to > from ? "flash-up" : "flash-down");
     const start = performance.now();
     const step = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration);
+      // o horário do rAF é o do início do quadro e pode vir antes de `start`: sem o
+      // Math.max, o primeiro quadro sai negativo (ex.: "-R$ 0,00" ao subir a partir de 0)
+      const progress = Math.max(0, Math.min(1, (now - start) / duration));
       const eased = 1 - Math.pow(1 - progress, 3);
       const next = progress < 1 ? from + (to - from) * eased : to;
       displayRef.current = next;

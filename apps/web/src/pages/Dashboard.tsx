@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, CircleDollarSign, PiggyBank, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CircleDollarSign, HandCoins, PiggyBank, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AreaTrend, Donut } from "../components/charts.js";
 import { AnimatedNumber, Card, Delta, Kpi, Panel } from "../components/ui.js";
@@ -34,6 +34,16 @@ export function filterHistory<T extends { date: string }>(history: T[], range: R
       : new Date(now.getTime() - days * 86400000);
   const iso = cutoff.toISOString().slice(0, 10);
   return history.filter((item) => item.date >= iso);
+}
+
+// Renda mensal bruta das posições; o CDI usado (ou a falha ao buscá-lo) vai na legenda.
+function incomeDetail(data: Dashboard) {
+  const income = data.monthlyIncome;
+  if (income?.cdiUnavailable) {
+    return <span className="negative-text">Não foi possível recuperar os dados do CDI</span>;
+  }
+  if (!income || income.items.length === 0) return "bruta · defina o rendimento em Posições";
+  return income.cdiAnnual !== null ? `bruta · meta Selic ${percent(income.cdiAnnual)} a.a.` : "bruta";
 }
 
 export function DashboardPage({ data }: { data: Dashboard }) {
@@ -120,6 +130,12 @@ export function DashboardPage({ data }: { data: Dashboard }) {
             label="Aportes no ano"
             value={<AnimatedNumber value={data.annualContributions} format={money} />}
             detail={`${new Date().getFullYear()}`}
+          />
+          <Kpi
+            icon={HandCoins}
+            label="Renda mensal"
+            value={<AnimatedNumber value={data.monthlyIncome?.totalBrl ?? 0} format={money} />}
+            detail={incomeDetail(data)}
           />
           <Kpi
             icon={PiggyBank}

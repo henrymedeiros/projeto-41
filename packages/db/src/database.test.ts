@@ -79,6 +79,50 @@ describe("database", () => {
     expect(db.cryptoAssets.get("AVAX")?.slug).toBe("avalanche");
   });
 
+  it("stores where a position is held", () => {
+    db = createDatabase(":memory:");
+    db.positions.upsert({ category: "cash", name: "Conta", currentValue: 10, currency: "BRL", institution: "Nubank" });
+    db.positions.upsert({ category: "dollar", name: "Reserva USD", currentValue: 5, currency: "USD" });
+
+    expect(db.positions.list().map((position) => [position.name, position.institution])).toEqual([
+      ["Conta", "Nubank"],
+      ["Reserva USD", null]
+    ]);
+  });
+
+  it("stores the yield of a position", () => {
+    db = createDatabase(":memory:");
+    const id = db.positions.upsert({
+      category: "fixed_income",
+      name: "CDB",
+      invested: 1000,
+      currentValue: 1100,
+      currency: "BRL",
+      yieldType: "fixed",
+      yieldRate: 0.12
+    });
+
+    expect(db.positions.list()).toMatchObject([{ id, yieldType: "fixed", yieldRate: 0.12 }]);
+  });
+
+  it("gives existing Real and reserve positions 100% of the CDI when the yield columns arrive", () => {
+    temporaryDirectory = mkdtempSync(join(tmpdir(), "projeto41-db-"));
+    const databasePath = join(temporaryDirectory, "portfolio.sqlite");
+    db = createDatabase(databasePath);
+    db.raw.exec("ALTER TABLE manual_positions DROP COLUMN yield_type; ALTER TABLE manual_positions DROP COLUMN yield_rate;");
+    db.raw.exec(`INSERT INTO manual_positions (category, name, invested, current_value, currency) VALUES
+      ('cash', 'Conta', 0, 100, 'BRL'), ('reserve', 'Caixinha', 0, 200, 'BRL'), ('dollar', 'Wise', 0, 50, 'USD')`);
+    db.close();
+
+    db = createDatabase(databasePath);
+
+    expect(db.positions.list().map((position) => [position.name, position.yieldType, position.yieldRate])).toEqual([
+      ["Conta", "cdi", 1],
+      ["Wise", "none", 0],
+      ["Caixinha", "cdi", 1]
+    ]);
+  });
+
   it("stores operations and enforces one snapshot per date", () => {
     db = createDatabase(":memory:");
     db.operations.create({

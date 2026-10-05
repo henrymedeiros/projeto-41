@@ -13,7 +13,9 @@ const b3 = [...new Set(db.operations.list("b3").map((operation) => operation.ass
 const items = [
   ...crypto.map((key) => ({ kind: "crypto" as IconKind, key })),
   ...b3.map((key) => ({ kind: "b3" as IconKind, key })),
-  ...db.positions.list().map((position) => ({ kind: "institution" as IconKind, key: position.name }))
+  ...db.positions
+    .list()
+    .map((position) => ({ kind: "institution" as IconKind, key: position.institution || position.name }))
 ];
 
 const downloaded = await iconService.prefetch(items);

@@ -100,3 +100,26 @@ function sum(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
 }
 
+// ---------- rendimento ----------
+
+/** Como uma posição rende: % do CDI (1 = 100%), prefixado (0.12 = 12% a.a.) ou nada. */
+export type PositionYield = { type: "cdi" | "fixed" | "none"; rate: number };
+
+/**
+ * Rendimento efetivo ao ano (0.1365 = 13,65%). No CDI, o percentual incide sobre a taxa
+ * diária (252 dias úteis), como nos títulos pós-fixados. Sem a taxa do CDI, devolve null.
+ */
+export function effectiveAnnualYield(yieldSpec: PositionYield, cdiAnnual: number | null): number | null {
+  if (yieldSpec.type === "fixed") return yieldSpec.rate;
+  if (yieldSpec.type !== "cdi") return 0;
+  if (cdiAnnual === null) return null;
+  const daily = (1 + cdiAnnual) ** (1 / 252) - 1;
+  return (1 + daily * yieldSpec.rate) ** 252 - 1;
+}
+
+/** Renda bruta de um mês sobre o valor atual; 0 quando não dá para calcular. */
+export function monthlyIncome(valueBrl: number, yieldSpec: PositionYield, cdiAnnual: number | null) {
+  const annual = effectiveAnnualYield(yieldSpec, cdiAnnual);
+  if (!annual || valueBrl <= 0) return 0;
+  return valueBrl * ((1 + annual) ** (1 / 12) - 1);
+}

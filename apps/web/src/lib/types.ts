@@ -43,7 +43,18 @@ export type Dashboard = {
   portfolios: { crypto: Asset[]; b3: Asset[] };
   reserveBrl: number;
   customCategories?: { key: string; label: string }[];
+  monthlyIncome?: MonthlyIncome;
   updatedAt: string;
+};
+
+export type MonthlyIncome = {
+  totalBrl: number;
+  cdiAnnual: number | null;
+  /** a última busca do CDI falhou (ou nunca houve CDI): o front avisa */
+  cdiUnavailable: boolean;
+  /** início da meta Selic usada no CDI (ISO), ex.: "2026-09-17T03:00:00Z" */
+  cdiReference: string | null;
+  items: { id: number; name: string; category: string; monthlyBrl: number }[];
 };
 
 export type Operation = {
@@ -66,6 +77,9 @@ export type ManualPosition = {
   currentValue: number;
   currency: "BRL" | "USD";
   notes?: string;
+  institution?: string | null;
+  yieldType: "cdi" | "fixed" | "none";
+  yieldRate: number;
 };
 
 export type Contribution = {

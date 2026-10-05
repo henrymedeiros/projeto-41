@@ -514,3 +514,47 @@ describe("allocation categories", () => {
     await app.close();
   });
 });
+
+describe("position yield", () => {
+  it("saves and returns the yield of a position", async () => {
+    db = createDatabase(":memory:");
+    const app = buildApp({ db, priceService: { runAll: async () => [] } });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/positions",
+      payload: {
+        category: "cash",
+        name: "Conta",
+        institution: "Nubank",
+        invested: 0,
+        currentValue: 100,
+        currency: "BRL",
+        yieldType: "cdi",
+        yieldRate: 1.1
+      }
+    });
+    const listed = await app.inject({ method: "GET", url: "/api/positions" });
+
+    expect(created.statusCode).toBe(201);
+    expect(listed.json()).toMatchObject([{ name: "Conta", institution: "Nubank", yieldType: "cdi", yieldRate: 1.1 }]);
+    await app.close();
+  });
+});
+
+describe("position name or institution", () => {
+  const position = { category: "cash", currentValue: 100, currency: "BRL" };
+
+  it("saves a position with only the institution, and refuses one with neither", async () => {
+    db = createDatabase(":memory:");
+    const app = buildApp({ db, priceService: { runAll: async () => [] } });
+
+    const onlyInstitution = await app.inject({ method: "POST", url: "/api/positions", payload: { ...position, institution: "Nubank" } });
+    const neither = await app.inject({ method: "POST", url: "/api/positions", payload: position });
+
+    expect(onlyInstitution.statusCode).toBe(201);
+    expect(neither.statusCode).toBe(400);
+    expect(db.positions.list()).toMatchObject([{ name: "", institution: "Nubank" }]);
+    await app.close();
+  });
+});

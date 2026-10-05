@@ -41,12 +41,28 @@ export const manualPositionSchema = z.object({
     z.enum(["dollar", "cash", "reserve", "fixed_income", "global"]),
     z.string().regex(customCategoryPattern)
   ]),
-  name: z.string().trim().min(1),
+  // nome e instituição: basta um dos dois (veja o refine abaixo)
+  name: z.string().trim().default(""),
+  // onde a posição está: banco, corretora, carteira digital…
+  institution: z.string().trim().max(60).optional(),
   invested: z.number().nonnegative().default(0),
   currentValue: z.number().nonnegative(),
   currency: currencySchema.default("BRL"),
-  notes: z.string().trim().optional()
+  notes: z.string().trim().optional(),
+  // rendimento: cdi = % do CDI (1 = 100%), fixed = prefixado ao ano (0.12 = 12%), none = não rende
+  yieldType: z.enum(["cdi", "fixed", "none"]).default("none"),
+  yieldRate: z.number().min(0).max(10).default(0)
+}).refine((position) => position.name !== "" || Boolean(position.institution), {
+  message: "Informe o nome ou a instituição da posição",
+  path: ["name"]
 });
+
+/** Rendimento sugerido ao criar uma posição: 100% do CDI para Real e Reserva, nada nas outras. */
+export function defaultPositionYield(category: string) {
+  return category === "cash" || category === "reserve"
+    ? { yieldType: "cdi" as const, yieldRate: 1 }
+    : { yieldType: "none" as const, yieldRate: 0 };
+}
 
 export const contributionSchema = z.object({
   id: z.number().int().positive().optional(),
@@ -57,6 +73,7 @@ export const contributionSchema = z.object({
 
 export type Operation = z.infer<typeof operationSchema>;
 export type ManualPosition = z.infer<typeof manualPositionSchema>;
+export type ManualPositionInput = z.input<typeof manualPositionSchema>;
 export type Contribution = z.infer<typeof contributionSchema>;
 export type Portfolio = z.infer<typeof portfolioSchema>;
 export type Currency = z.infer<typeof currencySchema>;

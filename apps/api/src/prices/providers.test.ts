@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fetchB3Price,
+  fetchCdi,
   fetchCryptoPrices,
   fetchUsdBrl,
   searchB3Assets,
@@ -126,5 +127,37 @@ describe("price providers", () => {
       Response.json({ value: [{ cotacaoVenda: 5.21, dataHoraCotacao: "2026-06-09 13:00:00.000" }] });
     const price = await fetchUsdBrl(new Date("2026-06-09T12:00:00Z"), fetcher as typeof fetch);
     expect(price).toMatchObject({ symbol: "USDBRL", price: 5.21, provider: "bcb" });
+  });
+
+  it("uses the current Selic target from the BCB interest-rate history as is", async () => {
+    const urls: string[] = [];
+    const fetcher = async (input: string | URL) => {
+      urls.push(String(input));
+      return Response.json({
+        conteudo: [
+          { MetaSelic: 13.75, DataInicioVigencia: "2026-09-17T03:00:00Z", DataFimVigencia: null },
+          { MetaSelic: 14.0, DataInicioVigencia: "2026-08-06T03:00:00Z", DataFimVigencia: "2026-09-16T03:00:00Z" }
+        ]
+      });
+    };
+
+    const rate = await fetchCdi(fetcher as typeof fetch);
+
+    expect(urls).toEqual(["https://www.bcb.gov.br/api/servico/sitebcb/historicotaxasjuros"]);
+    expect(rate).toMatchObject({ symbol: "CDI", currency: "BRL", provider: "bcb", marketTime: "2026-09-17T03:00:00Z" });
+    expect(rate.price).toBeCloseTo(0.1375, 10);
+  });
+
+  it("fails loudly when the BCB stops returning a current Selic target", async () => {
+    const empty = async () => Response.json({ conteudo: [] });
+    const onlyPast = async () =>
+      Response.json({ conteudo: [{ MetaSelic: 14, DataInicioVigencia: "2026-08-06T03:00:00Z", DataFimVigencia: "2026-09-16T03:00:00Z" }] });
+    const down = async () => new Response("<html>erro</html>", { status: 503 });
+    const html = async () => new Response("<html>mudou</html>", { status: 200 });
+
+    await expect(fetchCdi(empty as typeof fetch)).rejects.toThrow("CDI");
+    await expect(fetchCdi(onlyPast as typeof fetch)).rejects.toThrow("CDI");
+    await expect(fetchCdi(down as typeof fetch)).rejects.toThrow("503");
+    await expect(fetchCdi(html as typeof fetch)).rejects.toThrow();
   });
 });

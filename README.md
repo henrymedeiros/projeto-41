@@ -153,20 +153,26 @@ Tudo é cadastrado e editado direto no app:
 - **Cripto / Bolsa B3** — registre compras e vendas; quantidade, preço médio,
   saldo, PnL, peso e alocação são calculados automaticamente. O preço médio
   considera apenas as compras.
-- **Caixa e renda fixa** — posições manuais de dólar, caixa, reserva de
-  emergência e renda fixa, atualizadas por você.
+- **Posições** — contas e aplicações atualizadas por você: Dólar (USD), Real
+  (BRL), Reserva de Emergência, Renda Fixa e as categorias criadas na Alocação.
+  O **+** de cada seção abre uma posição já naquela categoria. Cada posição
+  guarda a **instituição** onde está (banco, corretora, carteira digital); basta
+  preencher o nome **ou** a instituição. Ela também pode
+  ter rendimento (**% do CDI**, **prefixado ao ano** ou nenhum; Real e Reserva
+  começam em 100% do CDI), que vira a **Renda mensal** bruta da Visão geral. Se
+  o CDI não puder ser obtido, o app avisa em vermelho na Visão geral e em Posições.
+- **Alocação** — defina a meta de cada classe pelo slider ou digitando a %, crie
+  categorias próprias e compare com a carteira atual (a reserva fica fora da meta).
 - **Aportes** — acompanhamento mensal dos aportes do ano.
 - **Planejamento** — simulador de patrimônio com aporte, rendimento e inflação.
-- **Alocação** — defina a meta de cada classe arrastando o slider e compare com
-  a carteira atual (a reserva fica fora da meta).
 - **Histórico** — evolução patrimonial com snapshots diários.
 
 Recursos extras na barra superior:
 
 - **Atualizar preços** — força um novo ciclo de cotações.
-- **Olho (privacidade)** — oculta valores e quantidades para gravar tela /
-  mostrar para outras pessoas; porcentagens e cotações públicas continuam
-  visíveis.
+- **Olho (privacidade)** — oculta valores, quantidades e as instituições das
+  posições (nome e logo) para gravar tela / mostrar para outras pessoas;
+  porcentagens e cotações públicas continuam visíveis.
 - **Tema** — alterna entre escuro e claro.
 
 Os ícones de criptos e ações são baixados automaticamente de CDNs públicos na
@@ -179,6 +185,7 @@ offline depois.
 | --- | --- | --- |
 | [brapi](https://brapi.dev) | Ações da B3 | `BRAPI_TOKEN` no `.env` (token gratuito) |
 | Banco Central (PTAX) | USD/BRL | automático, sem chave |
+| Banco Central (meta Selic) | Taxa da renda mensal das posições em % do CDI: a meta Selic vigente | automático, sem chave |
 | [CoinGecko](https://www.coingecko.com/en/api) | Criptomoedas | `COINGECKO_API_KEY` opcional (plano Demo) |
 | `TZ` | Horários das atualizações e snapshots | fuso IANA, como `America/Sao_Paulo` |
 

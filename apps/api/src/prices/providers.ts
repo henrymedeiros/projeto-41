@@ -185,6 +185,31 @@ export async function fetchUsdBrl(
   throw new Error("BCB did not return a USD/BRL quote for the last seven days");
 }
 
+/**
+ * Taxa usada como CDI ao ano (0.1375 = 13,75%): a última meta Selic informada (a vigente)
+ * no histórico de juros do BCB, sem ajuste, para bater com o número publicado. Lança erro
+ * se a resposta não trouxer uma meta vigente: o app mostra a falha em vez de seguir com
+ * um valor inventado.
+ */
+export async function fetchCdi(fetcher: Fetcher = fetch): Promise<PriceRecord> {
+  const response = await withTimeout(fetcher, "https://www.bcb.gov.br/api/servico/sitebcb/historicotaxasjuros");
+  if (!response.ok) throw new Error(`BCB returned ${response.status} for the Selic history`);
+  const data = (await response.json()) as {
+    conteudo?: { MetaSelic?: number; DataInicioVigencia?: string; DataFimVigencia?: string | null }[];
+  };
+  const current = data.conteudo?.find((meeting) => !meeting.DataFimVigencia && (meeting.MetaSelic ?? 0) > 0);
+  if (!current?.MetaSelic) throw new Error("BCB did not return a current Selic target for the CDI");
+  return {
+    symbol: "CDI",
+    currency: "BRL",
+    price: current.MetaSelic / 100,
+    provider: "bcb",
+    marketTime: current.DataInicioVigencia ?? null,
+    fetchedAt: new Date().toISOString(),
+    error: null
+  };
+}
+
 async function withTimeout(
   fetcher: Fetcher,
   input: string | URL,

@@ -26,20 +26,44 @@ um novo `[Unreleased]` vazio no topo.
 - `npm run autostart`: inicia o Projeto 41 junto com o sistema no Windows
   (nativo ou WSL), Linux (systemd do usuário) e macOS (LaunchAgent).
 - Alocação: a meta de cada classe pode ser digitada em % (além do slider), e
-  dá para criar categorias customizadas (ex.: Imóveis). Elas aparecem em Caixa e
-  renda fixa para receber posições, cujo valor entra no patrimônio, no
+  dá para criar categorias customizadas (ex.: Imóveis). Elas aparecem em
+  Posições para receber posições, cujo valor entra no patrimônio, no
   histórico e na distribuição. Só são excluídas quando não têm posições.
 - Cripto: o "auto" do preço na operação preenche com a cotação de hoje, e
   salvar uma operação atualiza as cotações de cripto.
 - B3: salvar uma operação atualiza a cotação do ticker dela (uma chamada à
   brapi, só para esse ticker).
+- Posições com rendimento (% do CDI, prefixado ao ano ou nenhum; 100% do CDI
+  por padrão em Real e Reserva) e o card **Renda mensal** (bruta) na Visão
+  geral. A taxa usada para o CDI é a meta Selic vigente publicada pelo Banco
+  Central (sem ajuste), atualizada com o dólar.
+- Posições: botão **+** em cada seção, que abre uma posição já na categoria, e
+  campo **Instituição** (com sugestões), usado também para o ícone da posição.
+  Basta o nome ou a instituição para cadastrar; sem nome, a instituição vira o
+  título.
+- Painel de posição reorganizado: categoria; instituição e nome; valor com a
+  moeda ao lado; rendimento em botões, com a prévia de quanto rende por mês.
+- Tela de Posições: resumo no topo (total, renda mensal, quantidade), total de
+  cada seção sempre em reais (com o valor em dólar abaixo quando houver) e seção
+  vazia com o botão "Adicionar posição".
+- O modo privacidade (olho) também oculta as instituições das posições, inclusive
+  o logo.
+- Falha ao obter o CDI aparece explicitamente (Visão geral e Posições); a renda
+  mensal segue com o último valor obtido, e a data dele é informada.
 - Backup diário criptografado (AES-256-GCM, senha via scrypt) numa pasta
   sincronizada com a nuvem, feito pelo supervisor (`PROJETO41_BACKUP_DIR`,
   `PROJETO41_BACKUP_PASSWORD`). `npm run backup` gera, `--status` mostra o
   último e `--restore` restaura.
 
+### Fixed
+
+- Total da seção de Posições ignorava as posições em USD quando havia BRL e USD
+  juntos.
+
 ### Changed
 
+- "Caixa e renda fixa" passa a se chamar **Posições**, com as seções Dólar
+  (USD), Real (BRL), Reserva de Emergência e Renda Fixa.
 - Alocação: classes padrão renomeadas para Bitcoin, Altcoins, Ações Globais,
   Ações Brasileiras, Caixa (BRL), Caixa (USD) e Renda Fixa (as metas existentes
   são mantidas).

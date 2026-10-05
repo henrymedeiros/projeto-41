@@ -1,5 +1,5 @@
 import type { AppDatabase, PriceRecord } from "@projeto41/db";
-import { calculatePosition } from "@projeto41/finance";
+import { calculatePosition, monthlyIncome as positionMonthlyIncome } from "@projeto41/finance";
 
 export function buildPortfolios(db: AppDatabase) {
   const prices = new Map(db.prices.list().map((price) => [price.symbol, price]));
@@ -56,7 +56,8 @@ export function buildDashboard(db: AppDatabase, now = new Date()) {
     global: 0
   };
 
-  for (const position of db.positions.list()) {
+  const positions = db.positions.list();
+  for (const position of positions) {
     categories[position.category] =
       (categories[position.category] ?? 0) +
       position.currentValue * (position.currency === "USD" ? usdBrl : 1);
@@ -88,14 +89,48 @@ export function buildDashboard(db: AppDatabase, now = new Date()) {
     prices,
     portfolios,
     reserveBrl: categories.reserve ?? 0,
+    monthlyIncome: buildMonthlyIncome(positions, db.prices.get("CDI"), usdBrl),
     customCategories: db.targets
       .list()
       .filter((target) => target.label && target.category.startsWith("custom_"))
       .map((target) => ({ key: target.category, label: target.label as string })),
-    updatedAt: prices.reduce(
-      (latest, price) => (price.fetchedAt > latest ? price.fetchedAt : latest),
-      ""
-    )
+    // "Cotações há X min" fala de preços de ativos; o CDI (taxa) não conta
+    updatedAt: prices
+      .filter((price) => price.symbol !== "CDI")
+      .reduce((latest, price) => (price.fetchedAt > latest ? price.fetchedAt : latest), "")
+  };
+}
+
+/**
+ * Renda mensal bruta das posições, pelo rendimento de cada uma sobre o valor atual.
+ * Pensada para receber outras fontes depois (ex.: dividendos de ativos) como novos itens.
+ */
+function buildMonthlyIncome(
+  positions: ReturnType<AppDatabase["positions"]["list"]>,
+  cdi: PriceRecord | undefined,
+  usdBrl: number
+) {
+  // Sem CDI ou com a última busca falhando, o front avisa explicitamente; enquanto houver
+  // um valor anterior, ele continua sendo usado (e a data dele vai junto).
+  const cdiAnnual = cdi && cdi.price > 0 ? cdi.price : null;
+  const items = positions
+    .filter((position) => position.yieldType !== "none" && position.currentValue > 0)
+    .map((position) => ({
+      id: position.id,
+      name: position.name || position.institution || "",
+      category: position.category,
+      monthlyBrl: positionMonthlyIncome(
+        position.currentValue * (position.currency === "USD" ? usdBrl : 1),
+        { type: position.yieldType, rate: position.yieldRate },
+        cdiAnnual
+      )
+    }));
+  return {
+    totalBrl: items.reduce((sum, item) => sum + item.monthlyBrl, 0),
+    cdiAnnual,
+    cdiUnavailable: cdiAnnual === null || Boolean(cdi?.error),
+    cdiReference: cdi?.marketTime ?? null,
+    items
   };
 }
 

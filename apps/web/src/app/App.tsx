@@ -58,7 +58,7 @@ const nav: { group: string; items: NavItem[] }[] = [
     items: [
       { id: "crypto", label: "Cripto", icon: Coins },
       { id: "b3", label: "Bolsa B3", icon: BriefcaseBusiness },
-      { id: "positions", label: "Caixa e renda fixa", icon: Wallet }
+      { id: "positions", label: "Posições", icon: Wallet }
     ]
   },
   {
@@ -319,7 +319,9 @@ export function App() {
                 onChanged={loadDashboard}
               />
             )}
-            {page === "positions" && <PositionsPage onChanged={loadDashboard} />}
+            {page === "positions" && (
+              <PositionsPage income={dashboard?.monthlyIncome} usdBrl={dashboard?.usdBrl ?? 0} onChanged={loadDashboard} />
+            )}
             {page === "contributions" && <ContributionsPage />}
             {page === "planning" && <PlanningPage />}
             {page === "allocation" && dashboard && <AllocationPage dashboard={dashboard} />}

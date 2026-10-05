@@ -1,3 +1,4 @@
+import { defaultPositionYield } from "@projeto41/contracts";
 import type { AppDatabase, PriceRecord } from "@projeto41/db";
 
 const cryptoAssets = [
@@ -189,7 +190,7 @@ function manual(
   currency: "BRL" | "USD",
   invested = currentValue * 0.94
 ) {
-  return { category, name, invested, currentValue, currency };
+  return { category, name, invested, currentValue, currency, ...defaultPositionYield(category) };
 }
 
 function seedHistory(db: AppDatabase, now: Date) {

@@ -12,11 +12,21 @@ const pctFmt = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2
 });
 
-// Modo privacidade: oculta valores em dinheiro e quantidades (não as %).
+// Modo privacidade: oculta valores em dinheiro, quantidades e onde o dinheiro está
+// (instituições), mas não as %.
 const MASK = "••••";
 let masked = false;
 export function setValuesMasked(value: boolean) {
   masked = value;
+}
+
+/** Texto que revela onde está o dinheiro (ex.: a instituição): some no modo privacidade. */
+export function privateText(text: string) {
+  return masked ? MASK : text;
+}
+
+export function valuesMasked() {
+  return masked;
 }
 
 export function money(value: number) {
