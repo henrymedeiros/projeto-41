@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
 
+const isWin = process.platform === "win32";
+const npm = isWin ? "npm.cmd" : "npm";
+
 const demoEnvironment = {
   ...process.env,
   DATABASE_URL: "./data/projeto41-demo.sqlite",
@@ -7,8 +10,9 @@ const demoEnvironment = {
   DEMO_MODE: "true"
 };
 
-const seed = spawn("npm", ["run", "demo:seed", "-w", "@projeto41/api"], {
+const seed = spawn(npm, ["run", "demo:seed", "-w", "@projeto41/api"], {
   env: demoEnvironment,
+  shell: isWin,
   stdio: "inherit"
 });
 const seedCode = await new Promise((resolve) => seed.on("exit", resolve));
@@ -32,9 +36,10 @@ const commands = [
 ];
 
 const children = commands.map(([name, args, env]) => {
-  const child = spawn("npm", args, {
+  const child = spawn(npm, args, {
     env,
-    detached: true,
+    detached: !isWin,
+    shell: isWin,
     stdio: ["inherit", "pipe", "pipe"]
   });
   child.stdout.on("data", (chunk) => process.stdout.write(`[${name}] ${chunk}`));
@@ -44,7 +49,9 @@ const children = commands.map(([name, args, env]) => {
 
 function stop(signal) {
   for (const child of children) {
-    if (child.pid) process.kill(-child.pid, signal);
+    if (!child.pid) continue;
+    if (isWin) spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
+    else process.kill(-child.pid, signal);
   }
 }
 
