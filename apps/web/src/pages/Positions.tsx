@@ -2,7 +2,7 @@ import { Banknote, Coins, DollarSign, Landmark, PiggyBank, Plus, Save, Tag, Tras
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Drawer, useConfirm } from "../components/dialog.js";
-import { AssetIcon, Button, Card, Field, IconButton, MiniStat, NumberInput, SectionHeading, Segmented } from "../components/ui.js";
+import { AssetIcon, Button, Card, Field, IconButton, MiniStat, MoneyInput, NumberInput, SectionHeading, Segmented } from "../components/ui.js";
 import { api } from "../lib/api.js";
 import { currency as fmtCurrency, money, percent, privateText, valuesMasked } from "../lib/format.js";
 import { institutionIconUrl } from "../lib/icons.js";
@@ -449,12 +449,11 @@ function PositionDrawer({
             </div>
             <div className="input-suffix money-input">
               <span>{symbol}</span>
-              <NumberInput
+              <MoneyInput
                 id="position-current-value"
                 value={currentValue}
-                min="0"
                 placeholder="0,00"
-                onChange={(event) => setCurrentValue(event.target.value)}
+                onValueChange={setCurrentValue}
               />
             </div>
           </div>
@@ -462,12 +461,7 @@ function PositionDrawer({
             <Field label="Valor investido" hint="Quanto você aplicou, para ver o ganho da posição.">
               <div className="input-suffix money-input">
                 <span>{symbol}</span>
-                <NumberInput
-                  value={invested}
-                  min="0"
-                  placeholder="0,00"
-                  onChange={(event) => setInvested(event.target.value)}
-                />
+                <MoneyInput value={invested} placeholder="0,00" onValueChange={setInvested} />
               </div>
             </Field>
           )}

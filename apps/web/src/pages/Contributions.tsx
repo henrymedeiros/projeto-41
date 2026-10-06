@@ -8,7 +8,7 @@ import {
   Field,
   IconButton,
   MiniStat,
-  NumberInput,
+  MoneyInput,
   Panel,
   SectionHeading
 } from "../components/ui.js";
@@ -158,7 +158,7 @@ export function ContributionsPage() {
               <input name="date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} />
             </Field>
             <Field label="Valor (BRL)">
-              <NumberInput name="amount" min="0" required autoFocus placeholder="0,00" />
+              <MoneyInput name="amount" required autoFocus placeholder="0,00" />
             </Field>
             <Field label="Observação">
               <input name="notes" placeholder="Opcional" />

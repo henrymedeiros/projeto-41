@@ -12,6 +12,7 @@ import {
   Field,
   IconButton,
   MiniStat,
+  MoneyInput,
   NumberInput,
   Panel,
   SearchInput,
@@ -563,6 +564,7 @@ function OperationDrawer({
             value={fields.unit}
             solved={solved === "unit"}
             step="0.01"
+            decimals={isCrypto ? 8 : 2}
             onChange={(value) => editField("unit", value)}
             onAuto={isCrypto ? fillTodayPrice : undefined}
             autoBusy={quoting}
@@ -574,6 +576,7 @@ function OperationDrawer({
             value={fields.total}
             solved={solved === "total"}
             step="0.01"
+            decimals={2}
             onChange={(value) => editField("total", value)}
           />
         </div>
@@ -623,6 +626,7 @@ function EqTerm({
   value,
   solved,
   step = "any",
+  decimals,
   onChange,
   onAuto,
   autoBusy = false
@@ -632,6 +636,8 @@ function EqTerm({
   value: string;
   solved: boolean;
   step?: string;
+  /** Casas decimais de um campo em dinheiro (com máscara); sem ele, é um número comum. */
+  decimals?: number;
   onChange: (value: string) => void;
   onAuto?: () => void;
   autoBusy?: boolean;
@@ -670,14 +676,18 @@ function EqTerm({
         )}
       </span>
       <div className="eq-input">
-        <NumberInput
-          id={inputId}
-          value={value}
-          min="0"
-          step={step}
-          placeholder="0"
-          onChange={(event) => onChange(event.target.value)}
-        />
+        {decimals === undefined ? (
+          <NumberInput
+            id={inputId}
+            value={value}
+            min="0"
+            step={step}
+            placeholder="0"
+            onChange={(event) => onChange(event.target.value)}
+          />
+        ) : (
+          <MoneyInput id={inputId} value={value} decimals={decimals} placeholder="0" onValueChange={onChange} />
+        )}
         <span className="eq-step">
           <button type="button" tabIndex={-1} aria-label="Aumentar" onClick={() => bump(1)}>
             <ChevronUp size={12} />
@@ -730,13 +740,11 @@ function InlineMoney({ value, onSave }: { value: number; onSave: (value: number)
   useEffect(() => setDraft(String(value)), [value]);
   if (editing) {
     return (
-      <input
+      <MoneyInput
         className="inline-input"
         autoFocus
-        type="number"
-        step="any"
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        onValueChange={setDraft}
         onBlur={() => {
           setEditing(false);
           if (Number(draft) !== value) onSave(Number(draft));

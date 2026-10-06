@@ -1,7 +1,8 @@
 import { ArrowDownRight, ArrowUpRight, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import type { ComponentType, InputHTMLAttributes, ReactNode } from "react";
 import { signedPercent } from "../lib/format.js";
+import { applyMoneyEdit, formatMoneyValue, maskMoneyText } from "../lib/money-mask.js";
 
 type IconType = ComponentType<{ size?: number | string; className?: string }>;
 
@@ -357,6 +358,71 @@ export function SearchInput({
 
 export function NumberInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input type="number" step="any" inputMode="decimal" {...props} />;
+}
+
+/**
+ * Campo de dinheiro com máscara pt-BR ("10.000,50"). Recebe e devolve o valor canônico
+ * ("10000.5"); com `name`, um input oculto leva esse valor no FormData.
+ */
+export function MoneyInput({
+  value,
+  onValueChange,
+  decimals = 2,
+  name,
+  onBlur,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type" | "defaultValue"> & {
+  value?: string | number;
+  onValueChange?: (value: string) => void;
+  decimals?: number;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const caret = useRef<number | null>(null);
+  const [text, setText] = useState(() => formatMoneyValue(value, decimals));
+  // força o re-render (e o reposicionamento do cursor) mesmo quando a máscara rejeita a tecla
+  const [edits, bumpEdits] = useReducer((count: number) => count + 1, 0);
+  const current = maskMoneyText(text, decimals).value;
+
+  // Valor alterado por fora (cálculo automático, troca de moeda): reformata. Enquanto o
+  // texto equivaler ao valor recebido, ele fica como digitado (ex.: "10," no meio da digitação).
+  useEffect(() => {
+    if (value === undefined) return;
+    if (Number(current || 0) !== Number(value || 0)) setText(formatMoneyValue(value, decimals));
+  }, [value, decimals]);
+
+  useLayoutEffect(() => {
+    const input = ref.current;
+    if (caret.current === null || !input || document.activeElement !== input) return;
+    input.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  }, [text, edits]);
+
+  return (
+    <>
+      <input
+        {...rest}
+        ref={ref}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={text}
+        onChange={(event) => {
+          const input = event.target;
+          const inputType = (event.nativeEvent as InputEvent).inputType ?? "";
+          const result = applyMoneyEdit(text, input.value, input.selectionStart ?? input.value.length, inputType, decimals);
+          caret.current = result.caret;
+          setText(result.text);
+          bumpEdits();
+          if (result.value !== current) onValueChange?.(result.value);
+        }}
+        onBlur={(event) => {
+          setText(formatMoneyValue(current, decimals));
+          onBlur?.(event);
+        }}
+      />
+      {name && <input type="hidden" name={name} value={current} />}
+    </>
+  );
 }
 
 export function Empty({ icon: Icon, text }: { icon: IconType; text: string }) {

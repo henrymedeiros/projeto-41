@@ -1,7 +1,7 @@
 import { Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DualAreaTrend } from "../components/charts.js";
-import { Button, Field, Loading, MiniStat, NumberInput, Panel, SectionHeading } from "../components/ui.js";
+import { Button, Field, Loading, MiniStat, MoneyInput, NumberInput, Panel, SectionHeading } from "../components/ui.js";
 import { api } from "../lib/api.js";
 import { money } from "../lib/format.js";
 import { useToast } from "../lib/toast.js";
@@ -85,10 +85,17 @@ export function PlanningPage() {
             {fields.map((item) => (
               <Field key={item.key} label={item.label}>
                 <div className="input-suffix">
-                  <NumberInput
-                    value={form[item.key]}
-                    onChange={(event) => setForm({ ...form, [item.key]: Number(event.target.value) })}
-                  />
+                  {item.suffix === "R$" ? (
+                    <MoneyInput
+                      value={form[item.key]}
+                      onValueChange={(value) => setForm({ ...form, [item.key]: Number(value) })}
+                    />
+                  ) : (
+                    <NumberInput
+                      value={form[item.key]}
+                      onChange={(event) => setForm({ ...form, [item.key]: Number(event.target.value) })}
+                    />
+                  )}
                   {item.suffix && <span>{item.suffix}</span>}
                 </div>
               </Field>
