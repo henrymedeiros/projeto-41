@@ -49,6 +49,8 @@ export type Dashboard = {
 
 export type MonthlyIncome = {
   totalBrl: number;
+  /** quanto todas as posições renderiam por mês a 100% do CDI */
+  potentialBrl?: number;
   cdiAnnual: number | null;
   /** a última busca do CDI falhou (ou nunca houve CDI): o front avisa */
   cdiUnavailable: boolean;

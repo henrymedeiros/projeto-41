@@ -104,6 +104,7 @@ export function buildDashboard(db: AppDatabase, now = new Date()) {
 /**
  * Renda mensal bruta das posições, pelo rendimento de cada uma sobre o valor atual.
  * Pensada para receber outras fontes depois (ex.: dividendos de ativos) como novos itens.
+ * `potentialBrl` simula todas as posições (inclusive as sem rendimento) a 100% do CDI.
  */
 function buildMonthlyIncome(
   positions: ReturnType<AppDatabase["positions"]["list"]>,
@@ -113,6 +114,8 @@ function buildMonthlyIncome(
   // Sem CDI ou com a última busca falhando, o front avisa explicitamente; enquanto houver
   // um valor anterior, ele continua sendo usado (e a data dele vai junto).
   const cdiAnnual = cdi && cdi.price > 0 ? cdi.price : null;
+  const toBrl = (position: (typeof positions)[number]) =>
+    position.currentValue * (position.currency === "USD" ? usdBrl : 1);
   const items = positions
     .filter((position) => position.yieldType !== "none" && position.currentValue > 0)
     .map((position) => ({
@@ -120,13 +123,17 @@ function buildMonthlyIncome(
       name: position.name || position.institution || "",
       category: position.category,
       monthlyBrl: positionMonthlyIncome(
-        position.currentValue * (position.currency === "USD" ? usdBrl : 1),
+        toBrl(position),
         { type: position.yieldType, rate: position.yieldRate },
         cdiAnnual
       )
     }));
   return {
     totalBrl: items.reduce((sum, item) => sum + item.monthlyBrl, 0),
+    potentialBrl: positions.reduce(
+      (sum, position) => sum + positionMonthlyIncome(toBrl(position), { type: "cdi", rate: 1 }, cdiAnnual),
+      0
+    ),
     cdiAnnual,
     cdiUnavailable: cdiAnnual === null || Boolean(cdi?.error),
     cdiReference: cdi?.marketTime ?? null,

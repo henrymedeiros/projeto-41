@@ -919,6 +919,29 @@ main {
 .kpi-right {
   margin-left: auto;
 }
+.kpi-potential {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  padding-left: 13px;
+  border-left: 1px solid var(--border);
+}
+.kpi-potential span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.kpi-potential strong {
+  font-size: 14px;
+  font-weight: 650;
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-potential small {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
 
 .dashboard-grid {
   display: grid;

@@ -136,6 +136,20 @@ export function DashboardPage({ data }: { data: Dashboard }) {
             label="Renda mensal"
             value={<AnimatedNumber value={data.monthlyIncome?.totalBrl ?? 0} format={money} />}
             detail={incomeDetail(data)}
+            right={
+              (data.monthlyIncome?.potentialBrl ?? 0) > 0 && (
+                <div
+                  className="kpi-potential"
+                  title="Quanto todas as posições renderiam por mês se estivessem a 100% do CDI"
+                >
+                  <span>Renda mensal potencial</span>
+                  <strong>
+                    <AnimatedNumber value={data.monthlyIncome?.potentialBrl ?? 0} format={money} />
+                  </strong>
+                  <small>a 100% do CDI</small>
+                </div>
+              )
+            }
           />
           <Kpi
             icon={PiggyBank}

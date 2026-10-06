@@ -113,6 +113,25 @@ describe("monthly income", () => {
     expect(monthlyIncome.cdiUnavailable).toBe(false);
   });
 
+  it("simulates every position (even the ones without yield) earning 100% of the CDI", () => {
+    db = createDatabase(":memory:");
+    db.prices.upsert({ symbol: "CDI", currency: "BRL", price: 0.1365, provider: "bcb", marketTime: null, fetchedAt: "2026-10-04T00:00:00Z", error: null });
+    db.prices.upsert({ symbol: "USDBRL", currency: "BRL", price: 5, provider: "bcb", marketTime: null, fetchedAt: "2026-10-04T00:00:00Z", error: null });
+    db.positions.upsert({ category: "cash", name: "Conta", invested: 0, currentValue: 10_000, currency: "BRL", yieldType: "cdi", yieldRate: 1.1 });
+    db.positions.upsert({ category: "fixed_income", name: "CDB", invested: 0, currentValue: 1000, currency: "USD", yieldType: "fixed", yieldRate: 0.12 });
+    db.positions.upsert({ category: "dollar", name: "Wise", invested: 0, currentValue: 500, currency: "USD", yieldType: "none", yieldRate: 0 });
+
+    // 10.000 + 5.000 + 2.500 a 100% do CDI; 10.000 a 100% do CDI rende 107,198 no mês
+    expect(buildDashboard(db).monthlyIncome.potentialBrl).toBeCloseTo(107.198 * 1.75, 2);
+  });
+
+  it("has no potential income without the CDI", () => {
+    db = createDatabase(":memory:");
+    db.positions.upsert({ category: "cash", name: "Conta", invested: 0, currentValue: 10_000, currency: "BRL", yieldType: "none", yieldRate: 0 });
+
+    expect(buildDashboard(db).monthlyIncome.potentialBrl).toBe(0);
+  });
+
   it("names an income item by its institution when the position has no name", () => {
     db = createDatabase(":memory:");
     db.prices.upsert({ symbol: "CDI", currency: "BRL", price: 0.1375, provider: "bcb", marketTime: null, fetchedAt: "2026-10-04T00:00:00Z", error: null });
